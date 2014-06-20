@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-20
+" Last Change: 2014-06-21
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -74,10 +74,10 @@ function! s:findbufs(stack) abort
    return bufs
 endfunction
 
-function! s:findnextbuf(stack, cnt) abort
+function! s:findnextbuf(bufs, cnt) abort
    let c = a:cnt
    let i = 0
-   for bn in a:stack.stack[1:]
+   for bn in a:bufs
       let i += 1
       if buflisted(bn)
          let c -= 1
