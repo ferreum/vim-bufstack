@@ -40,15 +40,16 @@ endfunction
 
 function! s:applyindex(stack) abort
    if a:stack.index > 0
+      " reverse stack from top to including the current index
       let idx = a:stack.index
+      let l = a:stack.stack
       let a:stack.index = 0
-      call s:maketop(a:stack.stack[idx])
+      let a:stack.stack = reverse(l[:idx]) + l[idx+1:]
    endif
 endfunction
 
 function! s:maketop(bufnr) abort
    let stack = s:get_stack()
-
    call s:applyindex(stack)
 
    let l = filter(stack.stack, 'v:val != a:bufnr')
