@@ -6,7 +6,9 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-let g:bufstack_max = 40
+if !exists('g:bufstack_max')
+   let g:bufstack_max = 40
+endif
 
 let s:switching = 0
 
@@ -72,16 +74,19 @@ function! s:findbufs(stack) abort
    return bufs
 endfunction
 
-function! s:findnextbuf(stack) abort
+function! s:findnextbuf(stack, cnt) abort
+   let c = a:cnt
    let i = 0
-   let found = -1
    for bn in a:stack.stack[1:]
       let i += 1
       if buflisted(bn)
-         return i
+         let c -= 1
+         if c <= 0
+            return [i, 0]
+         endif
       endif
    endfor
-   return -1
+   return [-1, c]
 endfunction
 
 function! s:gofindnext(stack, count) abort
@@ -124,30 +129,25 @@ function! bufstack#next(cnt) abort
    if a:cnt > 0
       if stack.index == 0
          let bufs = []
+      elseif stack.index < 0
+         throw "stack.index < 0"
       else
          let bufs = reverse(stack.stack[:(stack.index-1)])
       endif
+   elseif stack.index >= len(stack.stack)
+      throw "stack.index >= len(stack)"
    else
       let bufs = stack.stack[(stack.index+1):]
    endif
    " echom "bufs=" . string(bufs)
-   let c = 0
-   for bn in bufs
-      let c += 1
-      if buflisted(bn)
-         let ac -= 1
-         if ac <= 0
-            break
-         endif
-      endif
-   endfor
-   " echom "a:cnt=" . a:cnt . " c=" . c . " ac=" . ac
+   let [i, ac] = s:findnextbuf(bufs, ac)
+   " echom "a:cnt=" . a:cnt . " i=" . i . " ac=" . ac
    if ac > 0
       call s:gofindnext(stack, a:cnt < 0 ? -ac : ac)
    else
-      let idx = stack.index - (a:cnt < 0 ? -c : c)
+      let idx = stack.index - (a:cnt < 0 ? -i : i)
       if idx < 0 || idx >= len(stack.stack)
-         call s:echoerr("idx = " . idx . " len=" . len(stack.stack))
+         call s:echoerr("idx= " . idx . " len=" . len(stack.stack))
       else
          let stack.index = idx
          call s:gobuf(stack.stack[stack.index])
@@ -174,7 +174,7 @@ function! bufstack#alt() abort
       call s:echoerr("Only one buffer in stack")
    else
       call s:applyindex(stack)
-      let idx = s:findnextbuf(stack)
+      let [idx, c] = s:findnextbuf(stack.stack[1:], -1)
       if idx == -1
          call s:echoerr("No buffer found")
       else
