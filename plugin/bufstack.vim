@@ -20,34 +20,40 @@ endfunction
 
 " Core: {{{1
 
-function! s:copystack(winnr) abort
-   let w:bufstack_stack = a:winnr >= 1 ? copy(getwinvar(a:winnr, 'bufstack_stack', [])) : []
-   let w:bufstack_index = a:winnr >= 1 ? getwinvar(a:winnr, 'bufstack_index', 0) : 0
+function! s:initstack() abort
+   let altwin = winnr('#')
+   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
+   if empty(w:bufstack)
+      let w:bufstack.stack = []
+      let w:bufstack.index = 0
+   endif
 endfunction
 
-function! s:applyindex() abort
-   if w:bufstack_index > 0
-      let idx = w:bufstack_index
-      let w:bufstack_index = 0
-      call s:maketop(w:bufstack_stack[idx])
+function! s:get_stack() abort
+   if !exists('w:bufstack')
+      call s:initstack()
+   endif
+   return w:bufstack
+endfunction
+
+function! s:applyindex(stack) abort
+   if a:stack.index > 0
+      let idx = a:stack.index
+      let a:stack.index = 0
+      call s:maketop(a:stack.stack[idx])
    endif
 endfunction
 
 function! s:maketop(bufnr) abort
-   if !exists('w:bufstack_stack')
-      call s:copystack(winnr('#'))
-   endif
-   if !exists('w:bufstack_index')
-      let w:bufstack_index = 0
-   endif
+   let stack = s:get_stack()
 
-   call s:applyindex()
+   call s:applyindex(stack)
 
-   let l = filter(w:bufstack_stack, 'v:val != a:bufnr')
+   let l = filter(stack.stack, 'v:val != a:bufnr')
    if len(l) > g:bufstack_max
       let l = l[(1-g:bufstack_max):]
    endif
-   let w:bufstack_stack = insert(l, a:bufnr)
+   let stack.stack = insert(l, a:bufnr)
 endfunction
 
 function! s:gobuf(bufnr) abort
@@ -60,16 +66,16 @@ function! s:gobuf(bufnr) abort
    endtry
 endfunction
 
-function! s:findbufs() abort
-   let l = w:bufstack_stack
+function! s:findbufs(stack) abort
+   let l = a:stack.stack
    let bufs = filter(range(1, bufnr('$')), 'buflisted(v:val) && index(l, v:val) < 0')
    return bufs
 endfunction
 
-function! s:findnextbuf() abort
+function! s:findnextbuf(stack) abort
    let i = 0
    let found = -1
-   for bn in w:bufstack_stack[1:]
+   for bn in a:stack.stack[1:]
       let i += 1
       if buflisted(bn)
          return i
@@ -78,25 +84,25 @@ function! s:findnextbuf() abort
    return -1
 endfunction
 
-function! s:gofindnext(count) abort
+function! s:gofindnext(stack, count) abort
    " echom "gofindnext: c=" . a:count
    if a:count == 0
       call s:echoerr("count == 0")
       return 0
    endif
-   let bufs = s:findbufs()
+   let bufs = s:findbufs(a:stack)
    let ac = a:count < 0 ? -a:count : a:count
    if len(bufs) < ac
       call s:echoerr("No buffer found")
    else
       if a:count < 0
          let abufs = bufs[(-ac):]
-         let w:bufstack_stack = extend(w:bufstack_stack, abufs)
-         let bn = w:bufstack_stack[-1]
+         let a:stack.stack = extend(a:stack.stack, abufs)
+         let bn = a:stack.stack[-1]
       else
          let abufs = reverse(bufs[:(ac - 1)])
-         let w:bufstack_stack = extend(abufs, w:bufstack_stack)
-         let bn = w:bufstack_stack[0]
+         let a:stack.stack = extend(abufs, a:stack.stack)
+         let bn = a:stack.stack[0]
       endif
       call s:gobuf(bn)
       return 1
@@ -112,16 +118,17 @@ endfunction
 " Api Functions: {{{1
 
 function! bufstack#next(cnt) abort
+   let stack = s:get_stack()
    let ac = a:cnt < 0 ? -a:cnt : a:cnt
    " echom "a:cnt=" . a:cnt . " ac=" . ac
    if a:cnt > 0
-      if w:bufstack_index == 0
+      if stack.index == 0
          let bufs = []
       else
-         let bufs = reverse(w:bufstack_stack[:(w:bufstack_index-1)])
+         let bufs = reverse(stack.stack[:(stack.index-1)])
       endif
    else
-      let bufs = w:bufstack_stack[(w:bufstack_index+1):]
+      let bufs = stack.stack[(stack.index+1):]
    endif
    " echom "bufs=" . string(bufs)
    let c = 0
@@ -136,42 +143,44 @@ function! bufstack#next(cnt) abort
    endfor
    " echom "a:cnt=" . a:cnt . " c=" . c . " ac=" . ac
    if ac > 0
-      call s:gofindnext(a:cnt < 0 ? -ac : ac)
+      call s:gofindnext(stack, a:cnt < 0 ? -ac : ac)
    else
-      let idx = w:bufstack_index - (a:cnt < 0 ? -c : c)
-      if idx < 0 || idx >= len(w:bufstack_stack)
-         call s:echoerr("idx = " . idx . " len=" . len(w:bufstack_stack))
+      let idx = stack.index - (a:cnt < 0 ? -c : c)
+      if idx < 0 || idx >= len(stack.stack)
+         call s:echoerr("idx = " . idx . " len=" . len(stack.stack))
       else
-         let w:bufstack_index = idx
-         call s:gobuf(w:bufstack_stack[w:bufstack_index])
+         let stack.index = idx
+         call s:gobuf(stack.stack[stack.index])
       endif
    endif
 endfunction
 
 function! bufstack#bury(bufnr) abort
-   if len(w:bufstack_stack) <= 1
+   let stack = s:get_stack()
+   if len(stack.stack) <= 1
       call s:echoerr("Only one buffer in stack")
    else
-      call s:applyindex()
+      call s:applyindex(stack)
       call bufstack#next(-1)
-      let w:bufstack_index = 0
-      let w:bufstack_stack = filter(w:bufstack_stack, 'v:val != a:bufnr')
-      let w:bufstack_stack = add(w:bufstack_stack, a:bufnr)
+      let stack.index = 0
+      let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
+      let stack.stack = add(stack.stack, a:bufnr)
    endif
 endfunction
 
 function! bufstack#alt() abort
-   if len(w:bufstack_stack) <= 1
+   let stack = s:get_stack()
+   if len(stack.stack) <= 1
       call s:echoerr("Only one buffer in stack")
    else
-      call s:applyindex()
-      let idx = s:findnextbuf()
+      call s:applyindex(stack)
+      let idx = s:findnextbuf(stack)
       if idx == -1
          call s:echoerr("No buffer found")
       else
-         call s:gobuf(w:bufstack_stack[idx])
-         let w:bufstack_index = idx
-         call s:applyindex()
+         call s:gobuf(stack.stack[idx])
+         let stack.index = idx
+         call s:applyindex(stack)
       endif
    endif
 endfunction
