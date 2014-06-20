@@ -61,12 +61,15 @@ endfunction
 
 function! s:gobuf(bufnr) abort
    " echom "gobuf: nr=" . a:bufnr
+   let success = 0
    let s:switching = 1
    try
       exe 'b' a:bufnr
+      let success = 1
    finally
       let s:switching = 0
    endtry
+   return success
 endfunction
 
 function! s:findbufs(stack) abort
@@ -93,9 +96,9 @@ endfunction
 function! s:gofindnext(stack, count) abort
    " echom "gofindnext: c=" . a:count
    if a:count == 0
-      call s:echoerr("count == 0")
-      return 0
+      throw "count == 0"
    endif
+   let success = 0
    let bufs = s:findbufs(a:stack)
    let ac = a:count < 0 ? -a:count : a:count
    if len(bufs) < ac
@@ -111,8 +114,9 @@ function! s:gofindnext(stack, count) abort
          let bn = a:stack.stack[0]
       endif
       call s:gobuf(bn)
-      return 1
+      let success = 1
    endif
+   return success
 endfunction
 
 function! s:auenter() abort
@@ -124,6 +128,7 @@ endfunction
 " Api Functions: {{{1
 
 function! bufstack#next(cnt) abort
+   let success = 0
    let stack = s:get_stack()
    let ac = a:cnt < 0 ? -a:cnt : a:cnt
    " echom "a:cnt=" . a:cnt . " ac=" . ac
@@ -144,32 +149,40 @@ function! bufstack#next(cnt) abort
    let [i, ac] = s:findnextbuf(bufs, ac)
    " echom "a:cnt=" . a:cnt . " i=" . i . " ac=" . ac
    if ac > 0
-      call s:gofindnext(stack, a:cnt < 0 ? -ac : ac)
+      let success = s:gofindnext(stack, a:cnt < 0 ? -ac : ac)
    else
       let idx = stack.index - (a:cnt < 0 ? -i : i)
       if idx < 0 || idx >= len(stack.stack)
-         call s:echoerr("idx= " . idx . " len=" . len(stack.stack))
+         throw "idx= " . idx . " len=" . len(stack.stack)
       else
          let stack.index = idx
          call s:gobuf(stack.stack[stack.index])
+         let success = 1
       endif
    endif
+   return success
 endfunction
 
 function! bufstack#bury(bufnr) abort
+   let success = 0
    let stack = s:get_stack()
    if len(stack.stack) <= 1
       call s:echoerr("Only one buffer in stack")
    else
       call s:applyindex(stack)
-      call bufstack#next(-1)
-      let stack.index = 0
-      let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
-      let stack.stack = add(stack.stack, a:bufnr)
+      if bufstack#next(-1)
+         call s:applyindex(stack)
+         " move buffer to the bottom of the stack
+         let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
+         let stack.stack = add(stack.stack, a:bufnr)
+         let success = 1
+      endif
    endif
+   return success
 endfunction
 
 function! bufstack#alt() abort
+   let success = 0
    let stack = s:get_stack()
    if len(stack.stack) <= 1
       call s:echoerr("Only one buffer in stack")
@@ -182,8 +195,10 @@ function! bufstack#alt() abort
          call s:gobuf(stack.stack[idx])
          let stack.index = idx
          call s:applyindex(stack)
+         let success = 1
       endif
    endif
+   return success
 endfunction
 
 " Setup: {{{1
