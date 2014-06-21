@@ -27,6 +27,7 @@ function! s:initstack() abort
    let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
    if empty(w:bufstack)
       let w:bufstack.stack = []
+      let w:bufstack.last = []
       let w:bufstack.index = 0
    endif
 endfunction
@@ -39,13 +40,19 @@ function! s:get_stack() abort
 endfunction
 
 function! s:applyindex(stack) abort
-   if a:stack.index > 0
-      " reverse stack from top to including the current index
-      let idx = a:stack.index
-      let l = a:stack.stack
+   if !empty(a:stack.last)
+      " move visited buffers to top of the stack
+      let bufs = a:stack.stack
+      let last = a:stack.last
+      call filter(bufs, 'index(last, v:val) < 0')
+      let a:stack.stack = extend(last, bufs)
+      let a:stack.last = []
       let a:stack.index = 0
-      let a:stack.stack = reverse(l[:idx]) + l[idx+1:]
    endif
+endfunction
+
+function! s:addvisited(stack, bufnr) abort
+   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
 endfunction
 
 function! s:maketop(stack, bufnr) abort
@@ -123,8 +130,9 @@ function! s:gofindnext(stack, count) abort
    if bn != -1
       let a:stack.stack = bufs
       let a:stack.index = a:count < 0 ? len(bufs) - 1 : 0
-      let success = 1
+      call s:addvisited(a:stack, bn)
       call s:gobuf(bn)
+      let success = 1
    endif
    return success
 endfunction
@@ -165,8 +173,10 @@ function! bufstack#next(cnt) abort
       if idx < 0 || idx >= len(stack.stack)
          throw "idx= " . idx . " len=" . len(stack.stack)
       else
+         let bn = stack.stack[idx]
          let stack.index = idx
-         call s:gobuf(stack.stack[stack.index])
+         call s:addvisited(stack, bn)
+         call s:gobuf(bn)
          let success = 1
       endif
    endif
