@@ -48,15 +48,14 @@ function! s:applyindex(stack) abort
    endif
 endfunction
 
-function! s:maketop(bufnr) abort
-   let stack = s:get_stack()
-   call s:applyindex(stack)
+function! s:maketop(stack, bufnr) abort
+   call s:applyindex(a:stack)
 
-   let l = filter(stack.stack, 'v:val != a:bufnr')
+   let l = filter(a:stack.stack, 'v:val != a:bufnr')
    if len(l) > g:bufstack_max
-      let l = l[(1-g:bufstack_max):]
+      let l = l[:(g:bufstack_max)]
    endif
-   let stack.stack = insert(l, a:bufnr)
+   let a:stack.stack = insert(l, a:bufnr)
 endfunction
 
 function! s:gobuf(bufnr) abort
@@ -72,9 +71,8 @@ function! s:gobuf(bufnr) abort
    return success
 endfunction
 
-function! s:findbufs(stack) abort
-   let l = a:stack.stack
-   let bufs = filter(range(1, bufnr('$')), 'buflisted(v:val) && index(l, v:val) < 0')
+function! s:findbufs(l) abort
+   let bufs = filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
    return bufs
 endfunction
 
@@ -93,35 +91,47 @@ function! s:findnextbuf(bufs, cnt) abort
    return [-1, c]
 endfunction
 
+function! s:extendbufs(bufs, count) abort
+   let bn = -1
+   let bufs = a:bufs
+   let freebufs = s:findbufs(bufs)
+   let ac = a:count < 0 ? -a:count : a:count
+   if len(freebufs) < ac
+      call s:echoerr("No buffer found")
+   else
+      if a:count < 0
+         let abufs = freebufs[(-ac):]
+         let bufs = extend(bufs, abufs)
+         let bn = bufs[-1]
+      else
+         let abufs = reverse(freebufs[:(ac - 1)])
+         let bufs = extend(abufs, bufs)
+         let bn = bufs[0]
+      endif
+      let success = 1
+   endif
+   return [bufs, bn]
+endfunction
+
 function! s:gofindnext(stack, count) abort
    " echom "gofindnext: c=" . a:count
    if a:count == 0
       throw "count == 0"
    endif
    let success = 0
-   let bufs = s:findbufs(a:stack)
-   let ac = a:count < 0 ? -a:count : a:count
-   if len(bufs) < ac
-      call s:echoerr("No buffer found")
-   else
-      if a:count < 0
-         let abufs = bufs[(-ac):]
-         let a:stack.stack = extend(a:stack.stack, abufs)
-         let bn = a:stack.stack[-1]
-      else
-         let abufs = reverse(bufs[:(ac - 1)])
-         let a:stack.stack = extend(abufs, a:stack.stack)
-         let bn = a:stack.stack[0]
-      endif
-      call s:gobuf(bn)
+   let [bufs, bn] = s:extendbufs(a:stack.stack, a:count)
+   if bn != -1
+      let a:stack.stack = bufs
+      let a:stack.index = a:count < 0 ? len(bufs) - 1 : 0
       let success = 1
+      call s:gobuf(bn)
    endif
    return success
 endfunction
 
 function! s:auenter() abort
    if !s:switching
-      call s:maketop(bufnr('%'))
+      call s:maketop(s:get_stack(), bufnr('%'))
    endif
 endfunction
 
@@ -192,9 +202,9 @@ function! bufstack#alt() abort
       if idx == -1
          call s:echoerr("No buffer found")
       else
-         call s:gobuf(stack.stack[idx])
-         let stack.index = idx
-         call s:applyindex(stack)
+         let bn = stack.stack[idx]
+         call s:gobuf(bn)
+         call s:maketop(stack, bn)
          let success = 1
       endif
    endif
