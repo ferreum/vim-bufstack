@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-21
+" Last Change: 2014-06-22
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -44,15 +44,12 @@ function! s:applyindex(stack) abort
       " move visited buffers to top of the stack
       let bufs = a:stack.stack
       let last = a:stack.last
+      call s:addvisited(a:stack, bufs[a:stack.index])
       call filter(bufs, 'index(last, v:val) < 0')
       let a:stack.stack = extend(last, bufs)
       let a:stack.last = []
       let a:stack.index = 0
    endif
-endfunction
-
-function! s:addvisited(stack, bufnr) abort
-   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
 endfunction
 
 function! s:maketop(stack, bufnr) abort
@@ -65,9 +62,14 @@ function! s:maketop(stack, bufnr) abort
    let a:stack.stack = insert(l, a:bufnr)
 endfunction
 
-function! s:gobuf(bufnr) abort
+function! s:addvisited(stack, bufnr) abort
+   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
+endfunction
+
+function! s:gobuf(stack, bufnr) abort
    " echom "gobuf: nr=" . a:bufnr
    let success = 0
+   call s:addvisited(a:stack, bufnr('%'))
    let s:switching = 1
    try
       exe 'b' a:bufnr
@@ -108,7 +110,7 @@ function! s:extendbufs(bufs, count) abort
    else
       if a:count < 0
          let abufs = freebufs[(-ac):]
-         let bufs = extend(bufs, abufs)
+         let bufs = extend(copy(bufs), abufs)
          let bn = bufs[-1]
       else
          let abufs = reverse(freebufs[:(ac - 1)])
@@ -130,8 +132,7 @@ function! s:gofindnext(stack, count) abort
    if bn != -1
       let a:stack.stack = bufs
       let a:stack.index = a:count < 0 ? len(bufs) - 1 : 0
-      call s:addvisited(a:stack, bn)
-      call s:gobuf(bn)
+      call s:gobuf(a:stack, bn)
       let success = 1
    endif
    return success
@@ -175,8 +176,7 @@ function! bufstack#next(cnt) abort
       else
          let bn = stack.stack[idx]
          let stack.index = idx
-         call s:addvisited(stack, bn)
-         call s:gobuf(bn)
+         call s:gobuf(stack, bn)
          let success = 1
       endif
    endif
@@ -204,20 +204,9 @@ endfunction
 function! bufstack#alt() abort
    let success = 0
    let stack = s:get_stack()
-   if len(stack.stack) <= 1
-      call s:echoerr("Only one buffer in stack")
-   else
-      call s:applyindex(stack)
-      let [idx, c] = s:findnextbuf(stack.stack[1:], -1)
-      if idx == -1
-         call s:echoerr("No buffer found")
-      else
-         let bn = stack.stack[idx]
-         call s:gobuf(bn)
-         call s:maketop(stack, bn)
-         let success = 1
-      endif
-   endif
+   call s:applyindex(stack)
+   call bufstack#next(-1)
+   call s:applyindex(stack)
    return success
 endfunction
 
