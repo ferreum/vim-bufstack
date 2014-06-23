@@ -39,31 +39,39 @@ function! s:get_stack() abort
    return w:bufstack
 endfunction
 
-function! s:applyindex(stack) abort
+function! s:addvisited(stack, bufnr) abort
+   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
+endfunction
+
+function! s:applylast_(stack) abort
+   " move visited buffers to top of the stack
+   let bufs = a:stack.stack
+   let last = a:stack.last
+   call filter(bufs, 'index(last, v:val) < 0')
+   let bufs = extend(last, bufs)
+   if len(bufs) > g:bufstack_max
+      let bufs = bufs[:(g:bufstack_max - 1)]
+   endif
+   let a:stack.stack = bufs
+   let a:stack.last = []
+endfunction
+
+function! s:applyindex_(stack) abort
    if !empty(a:stack.last)
-      " move visited buffers to top of the stack
-      let bufs = a:stack.stack
-      let last = a:stack.last
-      call s:addvisited(a:stack, bufs[a:stack.index])
-      call filter(bufs, 'index(last, v:val) < 0')
-      let a:stack.stack = extend(last, bufs)
-      let a:stack.last = []
+      call s:addvisited(a:stack, a:stack.stack[a:stack.index])
       let a:stack.index = 0
    endif
 endfunction
 
-function! s:maketop(stack, bufnr) abort
-   call s:applyindex(a:stack)
-
-   let l = filter(a:stack.stack, 'v:val != a:bufnr')
-   if len(l) > g:bufstack_max
-      let l = l[:(g:bufstack_max)]
-   endif
-   let a:stack.stack = insert(l, a:bufnr)
+function! s:applylast(stack) abort
+   call s:applyindex_(a:stack)
+   call s:applylast_(a:stack)
 endfunction
 
-function! s:addvisited(stack, bufnr) abort
-   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
+function! s:maketop(stack, bufnr) abort
+   call s:applyindex_(a:stack)
+   call s:addvisited(a:stack, a:bufnr)
+   call s:applylast_(a:stack)
 endfunction
 
 function! s:gobuf(stack, bufnr) abort
@@ -157,9 +165,9 @@ endfunction
 function! bufstack#bury(bufnr) abort
    let success = 0
    let stack = s:get_stack()
-   call s:applyindex(stack)
+   call s:applylast(stack)
    if bufstack#next(-1)
-      call s:applyindex(stack)
+      call s:applylast(stack)
       " move buffer to the bottom of the stack
       let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
       call add(stack.stack, a:bufnr)
@@ -171,9 +179,9 @@ endfunction
 function! bufstack#alt() abort
    let success = 0
    let stack = s:get_stack()
-   call s:applyindex(stack)
+   call s:applylast(stack)
    if bufstack#next(-1)
-      call s:applyindex(stack)
+      call s:applylast(stack)
       let success = 1
    endif
    return success
