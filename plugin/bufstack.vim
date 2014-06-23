@@ -22,18 +22,30 @@ endfunction
 
 " Core: {{{1
 
+if !exists('g:bufstack_mru')
+   let g:bufstack_mru = []
+endif
+
+function! s:add_mru(bufnr) abort
+   call insert(filter(g:bufstack_mru, 'v:val != a:bufnr'), a:bufnr)
+   if len(g:bufstack_mru) > g:bufstack_max
+      call remove(g:bufstack_mru, 0, g:bufstack_max - 1)
+   endif
+endfunction
+
 function! s:initstack() abort
    let altwin = winnr('#')
    let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
    if empty(w:bufstack)
-      let w:bufstack.bufs = []
       let w:bufstack.last = []
       let w:bufstack.index = 0
    endif
+   let w:bufstack.bufs = copy(g:bufstack_mru)
 endfunction
 
 function! s:get_stack() abort
    if !exists('w:bufstack')
+      call s:add_mru(bufnr('%'))
       call s:initstack()
    endif
    return w:bufstack
@@ -50,7 +62,7 @@ function! s:applylast_(stack) abort
    call filter(bufs, 'index(last, v:val) < 0')
    let bufs = extend(last, bufs)
    if len(bufs) > g:bufstack_max
-      let bufs = bufs[:(g:bufstack_max - 1)]
+      call remove(bufs, 0, g:bufstack_max - 1)
    endif
    let a:stack.bufs = bufs
    let a:stack.last = []
@@ -81,6 +93,7 @@ function! s:gobuf(stack, bufnr) abort
    let s:switching = 1
    try
       exe 'b' a:bufnr
+      call s:add_mru(a:bufnr)
       let success = 1
    finally
       let s:switching = 0
@@ -90,6 +103,10 @@ endfunction
 
 function! s:getfreebufs(l) abort
    return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
+endfunction
+
+function! s:get_mrubufs(l) abort
+   return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
 function! s:findnextbuf(bufs, index, cnt) abort
@@ -115,21 +132,20 @@ function! s:findnextbuf(bufs, index, cnt) abort
    return [-1, a:cnt < 0 ? -ac : ac]
 endfunction
 
-function! s:extendbufs(bufs, cnt) abort
+function! s:extendbufs(bufs, fbufs, cnt) abort
    let bufs = a:bufs
-   let freebufs = s:getfreebufs(bufs)
    if a:cnt < 0
       " append first -cnt free buffers
       let ac = -a:cnt
-      let bufs = bufs + freebufs[:(ac - 1)]
+      let bufs = bufs + a:fbufs[:(ac - 1)]
       let idx = len(bufs) - 1
    else
       " prepend last cnt free buffers
       let ac = a:cnt
-      let bufs = extend(freebufs[(-ac):], bufs)
+      let bufs = extend(a:fbufs[(-ac):], bufs)
       let idx = 0
    endif
-   let ac -= len(freebufs)
+   let ac -= len(a:fbufs)
    if ac < 0
       let ac = 0
    endif
@@ -141,7 +157,12 @@ function! s:findnext_extend(bufs, index, cnt) abort
    if c == 0
       return [a:bufs, idx, 0]
    else
-      return s:extendbufs(a:bufs, c)
+      let [bufs, idx, c] = s:extendbufs(a:bufs, s:get_mrubufs(a:bufs), c)
+      if c == 0
+         return [bufs, idx, 0]
+      else
+         return s:extendbufs(a:bufs, s:getfreebufs(a:bufs), c)
+      endif
    endif
 endfunction
 
@@ -156,7 +177,9 @@ function! bufstack#next(cnt) abort
    else
       let stack.bufs = bufs
       let stack.index = idx
-      call s:gobuf(stack, bufs[idx])
+      let bn = bufs[idx]
+      call s:add_mru(bn)
+      call s:gobuf(stack, bn)
       let success = 1
    endif
    return success
@@ -191,6 +214,7 @@ endfunction
 
 function! s:auenter() abort
    if !s:switching
+      call s:add_mru(bufnr('%'))
       call s:maketop(s:get_stack(), bufnr('%'))
    endif
 endfunction
