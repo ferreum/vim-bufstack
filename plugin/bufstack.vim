@@ -157,17 +157,13 @@ endfunction
 function! bufstack#bury(bufnr) abort
    let success = 0
    let stack = s:get_stack()
-   if len(stack.stack) <= 1
-      call s:echoerr("Only one buffer in stack")
-   else
+   call s:applyindex(stack)
+   if bufstack#next(-1)
       call s:applyindex(stack)
-      if bufstack#next(-1)
-         call s:applyindex(stack)
-         " move buffer to the bottom of the stack
-         let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
-         let stack.stack = add(stack.stack, a:bufnr)
-         let success = 1
-      endif
+      " move buffer to the bottom of the stack
+      let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
+      call add(stack.stack, a:bufnr)
+      let success = 1
    endif
    return success
 endfunction
@@ -176,8 +172,10 @@ function! bufstack#alt() abort
    let success = 0
    let stack = s:get_stack()
    call s:applyindex(stack)
-   call bufstack#next(-1)
-   call s:applyindex(stack)
+   if bufstack#next(-1)
+      call s:applyindex(stack)
+      let success = 1
+   endif
    return success
 endfunction
 
