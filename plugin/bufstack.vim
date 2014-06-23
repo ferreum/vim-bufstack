@@ -7,7 +7,7 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 if !exists('g:bufstack_max')
-   let g:bufstack_max = 40
+   let g:bufstack_max = 42
 endif
 if !exists('g:bufstack_goend')
    let g:bufstack_goend = 1
