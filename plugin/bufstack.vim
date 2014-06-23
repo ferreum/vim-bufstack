@@ -80,9 +80,8 @@ function! s:gobuf(stack, bufnr) abort
    return success
 endfunction
 
-function! s:findbufs(l) abort
-   let bufs = filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
-   return bufs
+function! s:getfreebufs(l) abort
+   return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
 function! s:findnextbuf(bufs, index, cnt) abort
@@ -110,15 +109,16 @@ endfunction
 
 function! s:extendbufs(bufs, cnt) abort
    let bufs = a:bufs
-   let freebufs = s:findbufs(bufs)
-   let ac = a:cnt < 0 ? -a:cnt : a:cnt
+   let freebufs = s:getfreebufs(bufs)
    if a:cnt < 0
-      let abufs = freebufs[:(ac - 1)]
-      let bufs = extend(copy(bufs), abufs)
+      " append first -cnt free buffers
+      let ac = -a:cnt
+      let bufs = bufs + freebufs[:(ac - 1)]
       let idx = len(bufs) - 1
    else
-      let abufs = freebufs[(-ac):]
-      let bufs = extend(abufs, bufs)
+      " prepend last cnt free buffers
+      let ac = a:cnt
+      let bufs = extend(freebufs[(-ac):], bufs)
       let idx = 0
    endif
    let ac -= len(freebufs)
