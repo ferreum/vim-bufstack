@@ -137,12 +137,6 @@ function! s:findnext_extend(bufs, index, cnt) abort
    endif
 endfunction
 
-function! s:auenter() abort
-   if !s:switching
-      call s:maketop(s:get_stack(), bufnr('%'))
-   endif
-endfunction
-
 " Api Functions: {{{1
 
 function! bufstack#next(cnt) abort
@@ -189,9 +183,20 @@ endfunction
 
 " Setup: {{{1
 
+function! s:auenter() abort
+   if !s:switching
+      call s:maketop(s:get_stack(), bufnr('%'))
+   endif
+endfunction
+
+function! s:checkinit() abort
+   call s:get_stack()
+endfunction
+
 augroup plugin_bufstack
    autocmd!
    autocmd BufEnter * call s:auenter()
+   autocmd WinEnter * call s:checkinit()
 augroup END
 
 " Test Mappings: {{{1
