@@ -9,6 +9,9 @@ set cpo&vim
 if !exists('g:bufstack_max')
    let g:bufstack_max = 40
 endif
+if !exists('g:bufstack_goend')
+   let g:bufstack_goend = 1
+endif
 
 let s:switching = 0
 
@@ -22,15 +25,20 @@ endfunction
 
 " Core: {{{1
 
+function! s:buflist_insert(list, item) abort
+   call insert(filter(a:list, 'v:val != a:item'), a:item)
+   if len(a:list) > g:bufstack_max
+      call remove(g:bufstack_mru, 0, g:bufstack_max - 1)
+   endif
+   return a:list
+endfunction
+
 if !exists('g:bufstack_mru')
    let g:bufstack_mru = []
 endif
 
 function! s:add_mru(bufnr) abort
-   call insert(filter(g:bufstack_mru, 'v:val != a:bufnr'), a:bufnr)
-   if len(g:bufstack_mru) > g:bufstack_max
-      call remove(g:bufstack_mru, 0, g:bufstack_max - 1)
-   endif
+   call s:buflist_insert(g:bufstack_mru, a:bufnr)
 endfunction
 
 function! s:initstack() abort
@@ -52,7 +60,7 @@ function! s:get_stack() abort
 endfunction
 
 function! s:addvisited(stack, bufnr) abort
-   call insert(filter(a:stack.last, 'v:val != a:bufnr'), a:bufnr)
+   call s:buflist_insert(a:stack.last, a:bufnr)
 endfunction
 
 function! s:applylast_(stack) abort
@@ -101,7 +109,7 @@ function! s:gobuf(stack, bufnr) abort
    return success
 endfunction
 
-function! s:getfreebufs(l) abort
+function! s:get_freebufs(l) abort
    return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
@@ -134,6 +142,7 @@ endfunction
 
 function! s:extendbufs(bufs, fbufs, cnt) abort
    let bufs = a:bufs
+   " echom "bufs=" . string(bufs) . " fbufs=" . string(a:fbufs) . " cnt=" . a:cnt
    if a:cnt < 0
       " append first -cnt free buffers
       let ac = -a:cnt
@@ -142,13 +151,18 @@ function! s:extendbufs(bufs, fbufs, cnt) abort
    else
       " prepend last cnt free buffers
       let ac = a:cnt
-      let bufs = extend(a:fbufs[(-ac):], bufs)
+      let first = len(a:fbufs) - ac
+      if first < 0
+         let first = 0
+      endif
+      let bufs = extend(a:fbufs[(first):], bufs)
       let idx = 0
    endif
    let ac -= len(a:fbufs)
    if ac < 0
       let ac = 0
    endif
+   " echom "bufs=" . string(bufs) . " fbufs=" . string(a:fbufs) . " idx=" . idx . " ac=" . ac
    return [bufs, idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
@@ -161,7 +175,8 @@ function! s:findnext_extend(bufs, index, cnt) abort
       if c == 0
          return [bufs, idx, 0]
       else
-         return s:extendbufs(a:bufs, s:getfreebufs(a:bufs), c)
+         let [bufs, idx, c] = s:extendbufs(a:bufs, s:get_freebufs(a:bufs), c)
+         return [bufs, idx, c]
       endif
    endif
 endfunction
@@ -172,8 +187,8 @@ function! bufstack#next(cnt) abort
    let success = 0
    let stack = s:get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:cnt)
-   if c != 0
-      call s:echoerr("No buffer found")
+   if c != 0 && (!g:bufstack_goend || bufs[idx] == bufnr('%'))
+      call s:echoerr(printf("At %s of buffer list", c < 0 ? "end" : "start"))
    else
       let stack.bufs = bufs
       let stack.index = idx
@@ -185,26 +200,25 @@ function! bufstack#next(cnt) abort
    return success
 endfunction
 
-function! bufstack#bury(bufnr) abort
+function! bufstack#alt(...) abort
+   let cnt = get(a:000, 0, -1)
    let success = 0
    let stack = s:get_stack()
    call s:applylast(stack)
-   if bufstack#next(-1)
+   if bufstack#next(cnt)
       call s:applylast(stack)
-      " move buffer to the bottom of the stack
-      let stack.bufs = filter(stack.bufs, 'v:val != a:bufnr')
-      call add(stack.bufs, a:bufnr)
       let success = 1
    endif
    return success
 endfunction
 
-function! bufstack#alt() abort
+function! bufstack#bury(bufnr) abort
    let success = 0
    let stack = s:get_stack()
-   call s:applylast(stack)
-   if bufstack#next(-1)
-      call s:applylast(stack)
+   if bufstack#alt(-1)
+      " move buffer to the bottom of the stack
+      let stack.bufs = filter(stack.bufs, 'v:val != a:bufnr')
+      call add(stack.bufs, a:bufnr)
       let success = 1
    endif
    return success
@@ -234,7 +248,7 @@ augroup END
 nnoremap ^p :<C-u>call bufstack#next(-v:count1)<CR>
 nnoremap ^n :<C-u>call bufstack#next(v:count1)<CR>
 nnoremap ^b :<C-u>call bufstack#bury(bufnr('%'))<CR>
-nnoremap ^^ :<C-u>call bufstack#alt()<CR>
+nnoremap ^^ :<C-u>call bufstack#alt(-v:count1)<CR>
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
