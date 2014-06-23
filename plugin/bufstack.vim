@@ -95,7 +95,6 @@ function! s:maketop(stack, bufnr) abort
 endfunction
 
 function! s:gobuf(stack, bufnr) abort
-   " echom "gobuf: nr=" . a:bufnr
    let success = 0
    call s:addvisited(a:stack, bufnr('%'))
    let s:switching = 1
@@ -142,7 +141,6 @@ endfunction
 
 function! s:extendbufs(bufs, fbufs, cnt) abort
    let bufs = a:bufs
-   " echom "bufs=" . string(bufs) . " fbufs=" . string(a:fbufs) . " cnt=" . a:cnt
    if a:cnt < 0
       " append first -cnt free buffers
       let ac = -a:cnt
@@ -162,7 +160,6 @@ function! s:extendbufs(bufs, fbufs, cnt) abort
    if ac < 0
       let ac = 0
    endif
-   " echom "bufs=" . string(bufs) . " fbufs=" . string(a:fbufs) . " idx=" . idx . " ac=" . ac
    return [bufs, idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
