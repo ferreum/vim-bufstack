@@ -129,12 +129,12 @@ function! s:extendbufs(bufs, cnt) abort
 endfunction
 
 function! s:findnext_extend(bufs, index, cnt) abort
-   let bufs = a:bufs
-   let [idx, c] = s:findnextbuf(bufs, a:index, a:cnt)
-   if c != 0
-      let [bufs, idx, c] = s:extendbufs(bufs, c)
+   let [idx, c] = s:findnextbuf(a:bufs, a:index, a:cnt)
+   if c == 0
+      return [a:bufs, idx, 0]
+   else
+      return s:extendbufs(a:bufs, c)
    endif
-   return [bufs, idx, c]
 endfunction
 
 function! s:auenter() abort
@@ -149,7 +149,9 @@ function! bufstack#next(cnt) abort
    let success = 0
    let stack = s:get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.stack, stack.index, a:cnt)
-   if c == 0
+   if c != 0
+      call s:echoerr("No buffer found")
+   else
       let stack.stack = bufs
       let stack.index = idx
       call s:gobuf(stack, bufs[idx])
