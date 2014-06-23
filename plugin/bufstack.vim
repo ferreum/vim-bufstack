@@ -178,6 +178,34 @@ function! s:findnext_extend(bufs, index, cnt) abort
    endif
 endfunction
 
+function! s:hidebuf_win(bufnr) abort
+   if !bufstack#alt()
+      enew
+   endif
+   let stack = s:get_stack()
+   call s:applylast(stack)
+   call filter(stack.bufs, 'v:val != a:bufnr')
+endfunction
+
+function! s:hidebuf_tab(bufnr) abort
+   let o_win = winnr()
+   try
+      windo call s:hidebuf_win(a:bufnr)
+   finally
+      exe o_win . 'wincmd w'
+   endtry
+endfunction
+
+function! s:hidebuf(bufnr) abort
+   let o_tab = tabpagenr()
+   try
+      silent tabdo call s:hidebuf_tab(a:bufnr)
+      call filter(g:bufstack_mru, 'v:val != a:bufnr')
+   finally
+      exe 'tabp' o_tab
+   endtry
+endfunction
+
 " Api Functions: {{{1
 
 function! bufstack#next(cnt) abort
@@ -185,7 +213,7 @@ function! bufstack#next(cnt) abort
    let stack = s:get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:cnt)
    if c != 0 && (!g:bufstack_goend || bufs[idx] == bufnr('%'))
-      call s:echoerr(printf("At %s of buffer list", c < 0 ? "end" : "start"))
+      call s:echoerr(printf('At %s of buffer list', c < 0 ? 'end' : 'start'))
    else
       let stack.bufs = bufs
       let stack.index = idx
@@ -221,6 +249,14 @@ function! bufstack#bury(bufnr) abort
    return success
 endfunction
 
+function! bufstack#delete() abort
+   let success = 0
+   let bufnr = bufnr('%')
+   call s:hidebuf(bufnr)
+   exe 'bd' bufnr
+   return success
+endfunction
+
 " Setup: {{{1
 
 function! s:auenter() abort
@@ -245,6 +281,7 @@ augroup END
 nnoremap ^p :<C-u>call bufstack#next(-v:count1)<CR>
 nnoremap ^n :<C-u>call bufstack#next(v:count1)<CR>
 nnoremap ^b :<C-u>call bufstack#bury(bufnr('%'))<CR>
+nnoremap ^d :<C-u>call bufstack#delete()<CR>
 nnoremap ^^ :<C-u>call bufstack#alt(-v:count1)<CR>
 
 let &cpo = s:save_cpo
