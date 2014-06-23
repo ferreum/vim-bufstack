@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-22
+" Last Change: 2014-06-23
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -81,61 +81,60 @@ function! s:gobuf(stack, bufnr) abort
 endfunction
 
 function! s:findbufs(l) abort
-   let bufs = filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
+   let bufs = filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
    return bufs
 endfunction
 
-function! s:findnextbuf(bufs, cnt) abort
-   let c = a:cnt
-   let i = 0
-   for bn in a:bufs
-      let i += 1
-      if buflisted(bn)
-         let c -= 1
-         if c <= 0
+function! s:findnextbuf(bufs, index, cnt) abort
+   if a:cnt < 0
+      let ac = -a:cnt
+      let dir = 1
+      let start = a:index + 1
+      let end = len(a:bufs) - 1
+   else
+      let ac = a:cnt
+      let dir = -1
+      let start = a:index - 1
+      let end = 0
+   endif
+   for i in range(start, end, dir)
+      if buflisted(a:bufs[i])
+         let ac -= 1
+         if ac <= 0
             return [i, 0]
          endif
       endif
    endfor
-   return [-1, c]
+   return [-1, a:cnt < 0 ? -ac : ac]
 endfunction
 
-function! s:extendbufs(bufs, count) abort
-   let bn = -1
+function! s:extendbufs(bufs, cnt) abort
    let bufs = a:bufs
    let freebufs = s:findbufs(bufs)
-   let ac = a:count < 0 ? -a:count : a:count
-   if len(freebufs) < ac
-      call s:echoerr("No buffer found")
+   let ac = a:cnt < 0 ? -a:cnt : a:cnt
+   if a:cnt < 0
+      let abufs = freebufs[:(ac - 1)]
+      let bufs = extend(copy(bufs), abufs)
+      let idx = len(bufs) - 1
    else
-      if a:count < 0
-         let abufs = freebufs[(-ac):]
-         let bufs = extend(copy(bufs), abufs)
-         let bn = bufs[-1]
-      else
-         let abufs = reverse(freebufs[:(ac - 1)])
-         let bufs = extend(abufs, bufs)
-         let bn = bufs[0]
-      endif
-      let success = 1
+      let abufs = freebufs[(-ac):]
+      let bufs = extend(abufs, bufs)
+      let idx = 0
    endif
-   return [bufs, bn]
+   let ac -= len(freebufs)
+   if ac < 0
+      let ac = 0
+   endif
+   return [bufs, idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
-function! s:gofindnext(stack, count) abort
-   " echom "gofindnext: c=" . a:count
-   if a:count == 0
-      throw "count == 0"
+function! s:findnext_extend(bufs, index, cnt) abort
+   let bufs = a:bufs
+   let [idx, c] = s:findnextbuf(bufs, a:index, a:cnt)
+   if c != 0
+      let [bufs, idx, c] = s:extendbufs(bufs, c)
    endif
-   let success = 0
-   let [bufs, bn] = s:extendbufs(a:stack.stack, a:count)
-   if bn != -1
-      let a:stack.stack = bufs
-      let a:stack.index = a:count < 0 ? len(bufs) - 1 : 0
-      call s:gobuf(a:stack, bn)
-      let success = 1
-   endif
-   return success
+   return [bufs, idx, c]
 endfunction
 
 function! s:auenter() abort
@@ -149,36 +148,12 @@ endfunction
 function! bufstack#next(cnt) abort
    let success = 0
    let stack = s:get_stack()
-   let ac = a:cnt < 0 ? -a:cnt : a:cnt
-   " echom "a:cnt=" . a:cnt . " ac=" . ac
-   if a:cnt > 0
-      if stack.index == 0
-         let bufs = []
-      elseif stack.index < 0
-         throw "stack.index < 0"
-      else
-         let bufs = reverse(stack.stack[:(stack.index-1)])
-      endif
-   elseif stack.index >= len(stack.stack)
-      throw "stack.index >= len(stack)"
-   else
-      let bufs = stack.stack[(stack.index+1):]
-   endif
-   " echom "bufs=" . string(bufs)
-   let [i, ac] = s:findnextbuf(bufs, ac)
-   " echom "a:cnt=" . a:cnt . " i=" . i . " ac=" . ac
-   if ac > 0
-      let success = s:gofindnext(stack, a:cnt < 0 ? -ac : ac)
-   else
-      let idx = stack.index - (a:cnt < 0 ? -i : i)
-      if idx < 0 || idx >= len(stack.stack)
-         throw "idx= " . idx . " len=" . len(stack.stack)
-      else
-         let bn = stack.stack[idx]
-         let stack.index = idx
-         call s:gobuf(stack, bn)
-         let success = 1
-      endif
+   let [bufs, idx, c] = s:findnext_extend(stack.stack, stack.index, a:cnt)
+   if c == 0
+      let stack.stack = bufs
+      let stack.index = idx
+      call s:gobuf(stack, bufs[idx])
+      let success = 1
    endif
    return success
 endfunction
