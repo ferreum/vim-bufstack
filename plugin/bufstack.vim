@@ -26,7 +26,7 @@ function! s:initstack() abort
    let altwin = winnr('#')
    let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
    if empty(w:bufstack)
-      let w:bufstack.stack = []
+      let w:bufstack.bufs = []
       let w:bufstack.last = []
       let w:bufstack.index = 0
    endif
@@ -45,20 +45,20 @@ endfunction
 
 function! s:applylast_(stack) abort
    " move visited buffers to top of the stack
-   let bufs = a:stack.stack
+   let bufs = a:stack.bufs
    let last = a:stack.last
    call filter(bufs, 'index(last, v:val) < 0')
    let bufs = extend(last, bufs)
    if len(bufs) > g:bufstack_max
       let bufs = bufs[:(g:bufstack_max - 1)]
    endif
-   let a:stack.stack = bufs
+   let a:stack.bufs = bufs
    let a:stack.last = []
 endfunction
 
 function! s:applyindex_(stack) abort
    if !empty(a:stack.last)
-      call s:addvisited(a:stack, a:stack.stack[a:stack.index])
+      call s:addvisited(a:stack, a:stack.bufs[a:stack.index])
       let a:stack.index = 0
    endif
 endfunction
@@ -150,11 +150,11 @@ endfunction
 function! bufstack#next(cnt) abort
    let success = 0
    let stack = s:get_stack()
-   let [bufs, idx, c] = s:findnext_extend(stack.stack, stack.index, a:cnt)
+   let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:cnt)
    if c != 0
       call s:echoerr("No buffer found")
    else
-      let stack.stack = bufs
+      let stack.bufs = bufs
       let stack.index = idx
       call s:gobuf(stack, bufs[idx])
       let success = 1
@@ -169,8 +169,8 @@ function! bufstack#bury(bufnr) abort
    if bufstack#next(-1)
       call s:applylast(stack)
       " move buffer to the bottom of the stack
-      let stack.stack = filter(stack.stack, 'v:val != a:bufnr')
-      call add(stack.stack, a:bufnr)
+      let stack.bufs = filter(stack.bufs, 'v:val != a:bufnr')
+      call add(stack.bufs, a:bufnr)
       let success = 1
    endif
    return success
