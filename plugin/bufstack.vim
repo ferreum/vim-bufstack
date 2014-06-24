@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-23
+" Last Change: 2014-06-24
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -48,7 +48,7 @@ function! s:initstack() abort
       let w:bufstack.last = []
       let w:bufstack.index = 0
    endif
-   let w:bufstack.bufs = copy(g:bufstack_mru)
+   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
 endfunction
 
 function! s:get_stack() abort
