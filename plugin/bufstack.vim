@@ -261,7 +261,7 @@ endfunction
 
 " Setup: {{{1
 
-function! s:auenter() abort
+function! s:bufenter() abort
    if !s:switching
       call s:add_mru(bufnr('%'))
       call s:maketop(s:get_stack(), bufnr('%'))
@@ -272,11 +272,26 @@ function! s:checkinit() abort
    call s:get_stack()
 endfunction
 
+function! s:bufnew(bufnr) abort
+   if buflisted(a:bufnr) && index(g:bufstack_mru, a:bufnr) < 0
+      call insert(g:bufstack_mru, a:bufnr)
+   endif
+endfunction
+
 augroup plugin_bufstack
    autocmd!
-   autocmd BufEnter * call s:auenter()
+   autocmd BufEnter * call s:bufenter()
    autocmd WinEnter * call s:checkinit()
+   autocmd BufNew * call s:bufnew(expand("<abuf>"))
 augroup END
+
+function! s:addbufs() abort
+   for b in range(bufnr('$'), 0, -1)
+      call s:bufnew(b)
+   endfor
+endfunction
+
+call s:addbufs()
 
 " Test Mappings: {{{1
 
