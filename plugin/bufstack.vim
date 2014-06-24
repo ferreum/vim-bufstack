@@ -146,6 +146,7 @@ function! s:extendbufs(bufs, fbufs, cnt) abort
       let ac = -a:cnt
       let bufs = bufs + a:fbufs[:(ac - 1)]
       let idx = len(bufs) - 1
+      " TODO fix unlisted buffer may be selected when fbufs is empty
    else
       " prepend last cnt free buffers
       let ac = a:cnt
@@ -239,23 +240,23 @@ function! bufstack#alt(...) abort
    return success
 endfunction
 
-function! bufstack#bury(bufnr) abort
+function! bufstack#bury() abort
    let success = 0
    let stack = s:get_stack()
+   let bufnr = bufnr('%')
    if bufstack#alt(-1)
       " move buffer to the bottom of the stack
-      let stack.bufs = filter(stack.bufs, 'v:val != a:bufnr')
-      call add(stack.bufs, a:bufnr)
+      let stack.bufs = filter(stack.bufs, 'v:val != bufnr')
+      call add(stack.bufs, bufnr)
       let success = 1
    endif
    return success
 endfunction
 
-function! bufstack#delete() abort
+function! bufstack#delete(bufnr) abort
    let success = 0
-   let bufnr = bufnr('%')
-   call s:hidebuf(bufnr)
-   exe 'bd' bufnr
+   call s:hidebuf(a:bufnr)
+   exe 'bd' a:bufnr
    return success
 endfunction
 
@@ -293,13 +294,24 @@ endfunction
 
 call s:addbufs()
 
+" Mappings: {{{1
+
+nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#next(-v:count1)<CR>
+nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#next(v:count1)<CR>
+nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#delete(bufnr('%'))<CR>
+nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#bury()<CR>
+nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#alt(-v:count1)<CR>
+
 " Test Mappings: {{{1
 
-nnoremap ^p :<C-u>call bufstack#next(-v:count1)<CR>
-nnoremap ^n :<C-u>call bufstack#next(v:count1)<CR>
-nnoremap ^b :<C-u>call bufstack#bury(bufnr('%'))<CR>
-nnoremap ^d :<C-u>call bufstack#delete()<CR>
-nnoremap ^^ :<C-u>call bufstack#alt(-v:count1)<CR>
+if get(g:, 'bufstack_mappings', 1)
+   nmap ^p <Plug>(bufstack-previous)
+   nmap ^n <Plug>(bufstack-next)
+   nmap ^b <Plug>(bufstack-bury)
+   nmap ^d <Plug>(bufstack-delete)
+   nmap ^^ <Plug>(bufstack-alt)
+   nmap <C-^> <Plug>(bufstack-alt)
+endif
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
