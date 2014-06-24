@@ -179,12 +179,14 @@ function! s:findnext_extend(bufs, index, cnt) abort
 endfunction
 
 function! s:hidebuf_win(bufnr) abort
-   if !bufstack#alt()
-      enew
+   if bufnr('%') == a:bufnr
+      if !bufstack#alt()
+         enew
+      endif
+      let stack = s:get_stack()
+      call s:applylast(stack)
+      call filter(stack.bufs, 'v:val != a:bufnr')
    endif
-   let stack = s:get_stack()
-   call s:applylast(stack)
-   call filter(stack.bufs, 'v:val != a:bufnr')
 endfunction
 
 function! s:hidebuf_tab(bufnr) abort
