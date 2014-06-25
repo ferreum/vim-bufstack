@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-24
+" Last Change: 2014-06-25
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -117,6 +117,9 @@ function! s:get_mrubufs(l) abort
 endfunction
 
 function! s:findnextbuf(bufs, index, cnt) abort
+   if a:index < 0
+      throw "index < 0"
+   endif
    if a:cnt < 0
       let ac = -a:cnt
       let dir = 1
@@ -128,25 +131,32 @@ function! s:findnextbuf(bufs, index, cnt) abort
       let start = a:index - 1
       let end = 0
    endif
+   let idx = a:index
    for i in range(start, end, dir)
       if buflisted(a:bufs[i])
+         let idx = i
          let ac -= 1
          if ac <= 0
             return [i, 0]
          endif
       endif
    endfor
-   return [-1, a:cnt < 0 ? -ac : ac]
+   return [idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
-function! s:extendbufs(bufs, fbufs, cnt) abort
+function! s:extendbufs(bufs, idx, cnt, fbufs) abort
+   if a:idx < 0
+      throw "idx < 0"
+   endif
+   if empty(a:fbufs)
+      return [a:bufs, a:idx, a:cnt]
+   endif
    let bufs = a:bufs
    if a:cnt < 0
       " append first -cnt free buffers
       let ac = -a:cnt
       let bufs = bufs + a:fbufs[:(ac - 1)]
       let idx = len(bufs) - 1
-      " TODO fix unlisted buffer may be selected when fbufs is empty
    else
       " prepend last cnt free buffers
       let ac = a:cnt
@@ -169,12 +179,11 @@ function! s:findnext_extend(bufs, index, cnt) abort
    if c == 0
       return [a:bufs, idx, 0]
    else
-      let [bufs, idx, c] = s:extendbufs(a:bufs, s:get_mrubufs(a:bufs), c)
+      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
       if c == 0
          return [bufs, idx, 0]
       else
-         let [bufs, idx, c] = s:extendbufs(a:bufs, s:get_freebufs(a:bufs), c)
-         return [bufs, idx, c]
+         return s:extendbufs(a:bufs, idx, c, s:get_freebufs(a:bufs))
       endif
    endif
 endfunction
