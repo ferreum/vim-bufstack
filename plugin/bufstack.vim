@@ -41,26 +41,6 @@ function! s:add_mru(bufnr) abort
    call s:buflist_insert(g:bufstack_mru, a:bufnr)
 endfunction
 
-function! s:initstack() abort
-   let altwin = winnr('#')
-   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
-   if empty(w:bufstack)
-      let w:bufstack.bufs = []
-      let w:bufstack.last = []
-      let w:bufstack.index = 0
-   endif
-   call s:applylast(w:bufstack)
-   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
-endfunction
-
-function! s:get_stack() abort
-   if !exists('w:bufstack')
-      call s:add_mru(bufnr('%'))
-      call s:initstack()
-   endif
-   return w:bufstack
-endfunction
-
 function! s:addvisited(stack, bufnr) abort
    call s:buflist_insert(a:stack.last, a:bufnr)
 endfunction
@@ -108,6 +88,26 @@ function! s:gobuf(stack, bufnr) abort
       let s:switching = 0
    endtry
    return success
+endfunction
+
+function! s:initstack() abort
+   let altwin = winnr('#')
+   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
+   if empty(w:bufstack)
+      let w:bufstack.bufs = []
+      let w:bufstack.last = []
+      let w:bufstack.index = 0
+   endif
+   call s:applylast(w:bufstack)
+   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
+endfunction
+
+function! s:get_stack() abort
+   if !exists('w:bufstack')
+      call s:add_mru(bufnr('%'))
+      call s:initstack()
+   endif
+   return w:bufstack
 endfunction
 
 function! s:get_freebufs(l) abort
@@ -177,17 +177,17 @@ function! s:extendbufs(bufs, idx, cnt, fbufs) abort
 endfunction
 
 function! s:findnext_extend(bufs, index, cnt) abort
-   let [idx, c] = s:findnextbuf(a:bufs, a:index, a:cnt)
-   if c == 0
-      return [a:bufs, idx, 0]
-   else
-      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
-      if c == 0
-         return [bufs, idx, 0]
-      else
-         return s:extendbufs(a:bufs, idx, c, s:get_freebufs(a:bufs))
-      endif
+   let [bufs, idx, c] = [a:bufs, a:index, a:cnt]
+   if c != 0
+      let [idx, c] = s:findnextbuf(bufs, idx, c)
    endif
+   if c != 0
+      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
+   endif
+   if c != 0
+      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_freebufs(a:bufs))
+   endif
+   return [bufs, idx, c]
 endfunction
 
 function! s:hidebuf_win(bufnr) abort
