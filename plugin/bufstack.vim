@@ -134,11 +134,12 @@ function! s:get_stack() abort
    return w:bufstack
 endfunction
 
+" Get all buffers not in l.
 function! s:get_freebufs(l) abort
-   " return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
    return filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
+" Get all buffers in mru and not in l.
 function! s:get_mrubufs(l) abort
    return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
@@ -218,6 +219,7 @@ endfunction
 " Find the cnt'th buffer to switch to.
 " If cnt moves over an end of the buffer list, it is extended
 " as needed from the mru list and all remaining listed buffers.
+" returns the same as s:extendbufs()
 function! s:findnext_extend(bufs, index, cnt) abort
    let [bufs, idx, c] = [a:bufs, a:index, a:cnt]
    if c != 0 " find in window local list
@@ -227,11 +229,11 @@ function! s:findnext_extend(bufs, index, cnt) abort
       let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
    endif
    if c != 0
-      let fbufs = s:get_freebufs(a:bufs)
-      if c > 0
-         " remove mru buffers and use reversed list
-         let mrub = s:get_mrubufs(a:bufs)
-         call reverse(filter(fbufs, 'index(mrub, v:val) < 0'))
+      if c < 0
+         let fbufs = s:get_freebufs(a:bufs)
+      else
+         " reverse and ignore mru buffers when going forwards
+         let fbufs = reverse(s:get_freebufs(a:bufs + s:get_mrubufs(a:bufs)))
       endif
       let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, fbufs)
    endif
