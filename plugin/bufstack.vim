@@ -23,6 +23,25 @@ function! s:echoerr(err) abort
    echohl None
 endfunction
 
+function! s:windo(cmd, ...) abort
+   let o_win = winnr()
+   try
+      windo call call(a:cmd, a:000)
+   finally
+      exe o_win . 'wincmd w'
+   endtry
+endfunction
+
+function! s:tabwindo(cmd, ...) abort
+   let o_tab = tabpagenr()
+   let args = [a:cmd] + a:000
+   try
+      tabdo call call('s:windo', args)
+   finally
+      exe 'tabp' o_tab
+   endtry
+endfunction
+
 " Core: {{{1
 
 function! s:buflist_insert(list, item) abort
@@ -201,23 +220,9 @@ function! s:hidebuf_win(bufnr) abort
    endif
 endfunction
 
-function! s:hidebuf_tab(bufnr) abort
-   let o_win = winnr()
-   try
-      windo call s:hidebuf_win(a:bufnr)
-   finally
-      exe o_win . 'wincmd w'
-   endtry
-endfunction
-
 function! s:hidebuf(bufnr) abort
-   let o_tab = tabpagenr()
-   try
-      silent tabdo call s:hidebuf_tab(a:bufnr)
-      call filter(g:bufstack_mru, 'v:val != a:bufnr')
-   finally
-      exe 'tabp' o_tab
-   endtry
+   call s:tabwindo(function('s:hidebuf_win'), a:bufnr)
+   call filter(g:bufstack_mru, 'v:val != a:bufnr')
 endfunction
 
 " Api Functions: {{{1
@@ -267,7 +272,7 @@ endfunction
 function! bufstack#delete(bufnr) abort
    let success = 0
    call s:hidebuf(a:bufnr)
-   exe 'bd' a:bufnr
+   silent exe 'bdelete' a:bufnr
    return success
 endfunction
 
