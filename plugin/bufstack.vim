@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-25
+" Last Change: 2014-06-26
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -28,7 +28,7 @@ endfunction
 function! s:buflist_insert(list, item) abort
    call insert(filter(a:list, 'v:val != a:item'), a:item)
    if len(a:list) > g:bufstack_max
-      call remove(g:bufstack_mru, 0, g:bufstack_max - 1)
+      call remove(a:list, g:bufstack_max, len(a:list) - 1)
    endif
    return a:list
 endfunction
@@ -45,9 +45,11 @@ function! s:initstack() abort
    let altwin = winnr('#')
    let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
    if empty(w:bufstack)
+      let w:bufstack.bufs = []
       let w:bufstack.last = []
       let w:bufstack.index = 0
    endif
+   call s:applylast(w:bufstack)
    let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
 endfunction
 
@@ -70,7 +72,7 @@ function! s:applylast_(stack) abort
    call filter(bufs, 'index(last, v:val) < 0')
    let bufs = extend(last, bufs)
    if len(bufs) > g:bufstack_max
-      call remove(bufs, 0, g:bufstack_max - 1)
+      call remove(bufs, g:bufstack_max, len(bufs) - 1)
    endif
    let a:stack.bufs = bufs
    let a:stack.last = []
@@ -155,7 +157,7 @@ function! s:extendbufs(bufs, idx, cnt, fbufs) abort
    if a:cnt < 0
       " append first -cnt free buffers
       let ac = -a:cnt
-      let bufs = bufs + a:fbufs[:(ac - 1)]
+      let bufs = extend(a:fbufs[:(ac - 1)], bufs, 0)
       let idx = len(bufs) - 1
    else
       " prepend last cnt free buffers
