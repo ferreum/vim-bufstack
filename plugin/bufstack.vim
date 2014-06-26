@@ -123,7 +123,9 @@ endfunction
 
 function! s:get_stack() abort
    if !exists('w:bufstack')
-      call s:add_mru(bufnr('%'))
+      if buflisted(bufnr('%'))
+         call s:add_mru(bufnr('%'))
+      endif
       call s:initstack()
    endif
    return w:bufstack
@@ -182,10 +184,7 @@ function! s:extendbufs(bufs, idx, cnt, fbufs) abort
       " prepend last cnt free buffers
       let ac = a:cnt
       let first = len(a:fbufs) - ac
-      if first < 0
-         let first = 0
-      endif
-      let bufs = extend(a:fbufs[(first):], bufs)
+      let bufs = extend(a:fbufs[(first < 0 ? 0 : first):], bufs)
       let idx = 0
    endif
    let ac -= len(a:fbufs)
