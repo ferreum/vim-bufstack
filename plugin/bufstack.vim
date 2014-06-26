@@ -9,6 +9,9 @@ set cpo&vim
 if !exists('g:bufstack_max')
    let g:bufstack_max = 42
 endif
+if !exists('g:bufstack_max_mru')
+   let g:bufstack_max_mru = g:bufstack_max * 2
+endif
 if !exists('g:bufstack_goend')
    let g:bufstack_goend = 1
 endif
@@ -44,10 +47,10 @@ endfunction
 
 " Core: {{{1
 
-function! s:buflist_insert(list, item) abort
+function! s:buflist_insert(list, item, max) abort
    call insert(filter(a:list, 'v:val != a:item'), a:item)
-   if len(a:list) > g:bufstack_max
-      call remove(a:list, g:bufstack_max, len(a:list) - 1)
+   if len(a:list) > a:max
+      call remove(a:list, a:max, len(a:list) - 1)
    endif
    return a:list
 endfunction
@@ -57,11 +60,11 @@ if !exists('g:bufstack_mru')
 endif
 
 function! s:add_mru(bufnr) abort
-   call s:buflist_insert(g:bufstack_mru, a:bufnr)
+   call s:buflist_insert(g:bufstack_mru, a:bufnr, g:bufstack_max_mru)
 endfunction
 
 function! s:addvisited(stack, bufnr) abort
-   call s:buflist_insert(a:stack.last, a:bufnr)
+   call s:buflist_insert(a:stack.last, a:bufnr, g:bufstack_max)
 endfunction
 
 function! s:applylast_(stack) abort
@@ -132,13 +135,22 @@ function! s:get_stack() abort
 endfunction
 
 function! s:get_freebufs(l) abort
-   return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
+   " return filter(range(bufnr('$'), 1, -1), 'buflisted(v:val) && index(a:l, v:val) < 0')
+   return filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
 function! s:get_mrubufs(l) abort
    return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
+" Find the cnt'th buffer to switch to.
+"   bufs  - The buffer list.
+"   index - The old buffer stack index.
+"   cnt   - The count.
+" returns [index, cnt]
+"   index - The found index
+"   cnt   - The remaining count if not enough
+"           buffers are in the list
 function! s:findnextbuf(bufs, index, cnt) abort
    if a:index < 0
       throw "index < 0"
@@ -167,6 +179,15 @@ function! s:findnextbuf(bufs, index, cnt) abort
    return [idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
+" Extend the buffer list for switching to the cnt'th buffer.
+"   bufs  - The buffer list.
+"   index - The old buffer stack index.
+"   cnt   - The count.
+"   fbufs - List of buffers to extend the buffer list.
+" returns [bufs, index, cnt]
+"   bufs  - The new buffer list
+"   index - The found index
+"   cnt   - The remaining count if not enough buffers could be found.
 function! s:extendbufs(bufs, idx, cnt, fbufs) abort
    if a:idx < 0
       throw "idx < 0"
@@ -194,16 +215,25 @@ function! s:extendbufs(bufs, idx, cnt, fbufs) abort
    return [bufs, idx, a:cnt < 0 ? -ac : ac]
 endfunction
 
+" Find the cnt'th buffer to switch to.
+" If cnt moves over an end of the buffer list, it is extended
+" as needed from the mru list and all remaining listed buffers.
 function! s:findnext_extend(bufs, index, cnt) abort
    let [bufs, idx, c] = [a:bufs, a:index, a:cnt]
-   if c != 0
+   if c != 0 " find in window local list
       let [idx, c] = s:findnextbuf(bufs, idx, c)
    endif
-   if c != 0
+   if c < 0 " mru only when going backwards
       let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
    endif
    if c != 0
-      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_freebufs(a:bufs))
+      let fbufs = s:get_freebufs(a:bufs)
+      if c > 0
+         " remove mru buffers and use reversed list
+         let mrub = s:get_mrubufs(a:bufs)
+         call reverse(filter(fbufs, 'index(mrub, v:val) < 0'))
+      endif
+      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, fbufs)
    endif
    return [bufs, idx, c]
 endfunction
@@ -215,17 +245,21 @@ function! s:hidebuf_win(bufnr) abort
       endif
       let stack = s:get_stack()
       call s:applylast(stack)
-      call filter(stack.bufs, 'v:val != a:bufnr')
    endif
+   call filter(stack.bufs, 'v:val != a:bufnr')
 endfunction
 
-function! s:hidebuf(bufnr) abort
+" Go to every window with the given buffer, change to
+" the alternate buffer and remove the buffer from the stack.
+function! s:forget(bufnr) abort
    call s:tabwindo(function('s:hidebuf_win'), a:bufnr)
    call filter(g:bufstack_mru, 'v:val != a:bufnr')
 endfunction
 
 " Api Functions: {{{1
 
+" Change to the cnt'th next buffer.
+" Negative numbers to change to the -cnt'th previous buffer.
 function! bufstack#next(cnt) abort
    let success = 0
    let stack = s:get_stack()
@@ -236,13 +270,13 @@ function! bufstack#next(cnt) abort
       let stack.bufs = bufs
       let stack.index = idx
       let bn = bufs[idx]
-      call s:add_mru(bn)
       call s:gobuf(stack, bn)
       let success = 1
    endif
    return success
 endfunction
 
+" Change to the alternate buffer.
 function! bufstack#alt(...) abort
    let cnt = get(a:000, 0, -1)
    let success = 0
@@ -255,6 +289,8 @@ function! bufstack#alt(...) abort
    return success
 endfunction
 
+" Send the current buffer to the bottom of the stack.
+" Does not affect any other windows.
 function! bufstack#bury() abort
    let success = 0
    let stack = s:get_stack()
@@ -268,9 +304,13 @@ function! bufstack#bury() abort
    return success
 endfunction
 
+" Delete the buffer without closing any windows.
+" Windows showing the buffer are changed to the alternate
+" buffer. If one has no alternate buffer, it is changed to
+" an empty buffer.
 function! bufstack#delete(bufnr) abort
    let success = 0
-   call s:hidebuf(a:bufnr)
+   call s:forget(a:bufnr)
    silent exe 'bdelete' a:bufnr
    return success
 endfunction
@@ -290,7 +330,7 @@ endfunction
 
 function! s:bufnew(bufnr) abort
    if buflisted(a:bufnr) && index(g:bufstack_mru, a:bufnr) < 0
-      call insert(g:bufstack_mru, a:bufnr)
+      call s:add_mru(a:bufnr)
    endif
 endfunction
 
@@ -301,13 +341,12 @@ augroup plugin_bufstack
    autocmd BufNew * call s:bufnew(expand("<abuf>"))
 augroup END
 
-function! s:addbufs() abort
-   for b in range(bufnr('$'), 0, -1)
-      call s:bufnew(b)
-   endfor
-endfunction
-
-call s:addbufs()
+" function! s:addbufs() abort
+"    for b in range(bufnr('$'), 0, -1)
+"       call s:bufnew(b)
+"    endfor
+" endfunction
+" call s:addbufs()
 
 " Mappings: {{{1
 
