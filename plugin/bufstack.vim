@@ -293,14 +293,21 @@ endfunction
 
 " Send the current buffer to the bottom of the stack.
 " Does not affect any other windows.
-function! bufstack#bury() abort
+function! bufstack#bury(count) abort
    let success = 0
    let stack = s:get_stack()
    let bufnr = bufnr('%')
+   if a:count == 0
+      return 1
+   endif
    if bufstack#alt(-1)
       " move buffer to the bottom of the stack
       let stack.bufs = filter(stack.bufs, 'v:val != bufnr')
-      call add(stack.bufs, bufnr)
+      if a:count < 0 || a:count >= len(stack.bufs)
+         call add(stack.bufs, bufnr)
+      else
+         call insert(stack.bufs, bufnr, a:count)
+      endif
       let success = 1
    endif
    return success
@@ -360,7 +367,7 @@ nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#next(-v:count1)<CR>
 nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#next(v:count1)<CR>
 nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#delete(bufnr('%'))<CR>
 nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#delete(bufnr('%'), 1)<CR>
-nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#bury()<CR>
+nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#bury(v:count ? v:count : -1)<CR>
 nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#alt(-v:count1)<CR>
 
 " Test Mappings: {{{1
