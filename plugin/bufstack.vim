@@ -243,7 +243,7 @@ endfunction
 function! s:forget_win(bufnr) abort
    let stack = s:get_stack()
    if bufnr('%') == a:bufnr
-      if !bufstack#alt()
+      silent if !bufstack#alt()
          enew
       endif
       call s:applylast(stack)
@@ -310,10 +310,14 @@ endfunction
 " Windows showing the buffer are changed to the alternate
 " buffer. If one has no alternate buffer, it is changed to
 " an empty buffer.
-function! bufstack#delete(bufnr) abort
+function! bufstack#delete(bufnr, ...) abort
    let success = 0
+   let delwin = get(a:000, 0, 0)
    call s:forget(a:bufnr)
    silent exe 'bdelete' a:bufnr
+   if delwin
+      silent! wincmd c
+   endif
    return success
 endfunction
 
@@ -355,6 +359,7 @@ augroup END
 nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#next(-v:count1)<CR>
 nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#next(v:count1)<CR>
 nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#delete(bufnr('%'))<CR>
+nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#delete(bufnr('%'), 1)<CR>
 nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#bury()<CR>
 nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#alt(-v:count1)<CR>
 
@@ -365,6 +370,7 @@ if get(g:, 'bufstack_mappings', 1)
    nmap ^n <Plug>(bufstack-next)
    nmap ^b <Plug>(bufstack-bury)
    nmap ^d <Plug>(bufstack-delete)
+   nmap ^D <Plug>(bufstack-delete-win)
    nmap ^^ <Plug>(bufstack-alt)
    nmap <C-^> <Plug>(bufstack-alt)
 endif
