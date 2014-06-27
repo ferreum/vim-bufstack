@@ -254,7 +254,7 @@ endfunction
 " Go to every window with the given buffer, change to
 " the alternate buffer and remove the buffer from the stack.
 function! s:forget(bufnr) abort
-   call s:tabwindo(function('s:hidebuf_win'), a:bufnr)
+   call s:tabwindo(function('s:forget_win'), a:bufnr)
    call filter(g:bufstack_mru, 'v:val != a:bufnr')
 endfunction
 
