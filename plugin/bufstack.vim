@@ -240,7 +240,7 @@ function! s:findnext_extend(bufs, index, cnt) abort
    return [bufs, idx, c]
 endfunction
 
-function! s:hidebuf_win(bufnr) abort
+function! s:forget_win(bufnr) abort
    let stack = s:get_stack()
    if bufnr('%') == a:bufnr
       if !bufstack#alt()
