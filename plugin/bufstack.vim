@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-26
+" Last Change: 2014-06-27
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -241,11 +241,11 @@ function! s:findnext_extend(bufs, index, cnt) abort
 endfunction
 
 function! s:hidebuf_win(bufnr) abort
+   let stack = s:get_stack()
    if bufnr('%') == a:bufnr
       if !bufstack#alt()
          enew
       endif
-      let stack = s:get_stack()
       call s:applylast(stack)
    endif
    call filter(stack.bufs, 'v:val != a:bufnr')
