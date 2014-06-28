@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Description: bufstack
 " Created:     2014-06-20
-" Last Change: 2014-06-27
+" Last Change: 2014-06-28
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -353,13 +353,6 @@ augroup plugin_bufstack
    autocmd WinEnter * call s:checkinit()
    autocmd BufNew * call s:bufnew(expand("<abuf>"))
 augroup END
-
-" function! s:addbufs() abort
-"    for b in range(bufnr('$'), 0, -1)
-"       call s:bufnew(b)
-"    endfor
-" endfunction
-" call s:addbufs()
 
 " Mappings: {{{1
 
