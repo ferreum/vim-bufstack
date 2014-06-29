@@ -75,17 +75,12 @@ function! bufstack#maketop(stack, bufnr) abort
    call s:applylast_(a:stack)
 endfunction
 
-function! s:initstack() abort
+function! s:init_current() abort
    let altwin = winnr('#')
    let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
-   if empty(w:bufstack)
-      let w:bufstack.bufs = []
-      let w:bufstack.last = []
-      let w:bufstack.index = 0
-   else
-      call bufstack#applylast(w:bufstack)
-   endif
    let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
+   let w:bufstack.last = []
+   let w:bufstack.index = 0
 endfunction
 
 function! bufstack#get_stack() abort
@@ -93,7 +88,7 @@ function! bufstack#get_stack() abort
       if buflisted(bufnr('%'))
          call bufstack#add_mru(bufnr('%'))
       endif
-      call s:initstack()
+      call s:init_current()
    endif
    return w:bufstack
 endfunction

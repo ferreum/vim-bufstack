@@ -39,7 +39,7 @@ endfunction
 
 function! s:tabwindo(cmd, ...) abort
    let o_tab = tabpagenr()
-   let args = [a:cmd] + a:000
+   let args = extend([a:cmd], a:000)
    try
       tabdo call call('s:windo', args)
    finally
@@ -73,25 +73,25 @@ function! s:get_mrubufs(l) abort
    return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
 endfunction
 
-" Find the cnt'th buffer to switch to.
+" Find the count'th buffer to switch to.
 "   bufs  - The buffer list.
 "   index - The old buffer stack index.
-"   cnt   - The count.
-" returns [index, cnt]
+"   count - The count.
+" returns [index, count]
 "   index - The found index
-"   cnt   - The remaining count if not enough
+"   count - The remaining count if not enough
 "           buffers are in the list
-function! s:findnextbuf(bufs, index, cnt) abort
+function! s:findnext(bufs, index, count) abort
    if a:index < 0
       throw "index < 0"
    endif
-   if a:cnt < 0
-      let ac = -a:cnt
+   if a:count < 0
+      let ac = -a:count
       let dir = 1
       let start = a:index + 1
       let end = len(a:bufs) - 1
    else
-      let ac = a:cnt
+      let ac = a:count
       let dir = -1
       let start = a:index - 1
       let end = 0
@@ -106,34 +106,34 @@ function! s:findnextbuf(bufs, index, cnt) abort
          endif
       endif
    endfor
-   return [idx, a:cnt < 0 ? -ac : ac]
+   return [idx, a:count < 0 ? -ac : ac]
 endfunction
 
-" Extend the buffer list for switching to the cnt'th buffer.
+" Extend the buffer list for switching to the count'th buffer.
 "   bufs  - The buffer list.
 "   index - The old buffer stack index.
-"   cnt   - The count.
+"   count - The count.
 "   fbufs - List of buffers to extend the buffer list.
-" returns [bufs, index, cnt]
+" returns [bufs, index, count]
 "   bufs  - The new buffer list
 "   index - The found index
-"   cnt   - The remaining count if not enough buffers could be found.
-function! s:extendbufs(bufs, idx, cnt, fbufs) abort
+"   count - The remaining count if not enough buffers could be found.
+function! s:extendbufs(bufs, idx, count, fbufs) abort
    if a:idx < 0
       throw "idx < 0"
    endif
    if empty(a:fbufs)
-      return [a:bufs, a:idx, a:cnt]
+      return [a:bufs, a:idx, a:count]
    endif
    let bufs = a:bufs
-   if a:cnt < 0
-      " append first -cnt free buffers
-      let ac = -a:cnt
+   if a:count < 0
+      " append first -count free buffers
+      let ac = -a:count
       let bufs = extend(a:fbufs[:(ac - 1)], bufs, 0)
       let idx = len(bufs) - 1
    else
-      " prepend last cnt free buffers
-      let ac = a:cnt
+      " prepend last count free buffers
+      let ac = a:count
       let first = len(a:fbufs) - ac
       let bufs = extend(a:fbufs[(first < 0 ? 0 : first):], bufs)
       let idx = 0
@@ -142,17 +142,17 @@ function! s:extendbufs(bufs, idx, cnt, fbufs) abort
    if ac < 0
       let ac = 0
    endif
-   return [bufs, idx, a:cnt < 0 ? -ac : ac]
+   return [bufs, idx, a:count < 0 ? -ac : ac]
 endfunction
 
-" Find the cnt'th buffer to switch to.
-" If cnt moves over an end of the buffer list, it is extended
+" Find the count'th buffer to switch to.
+" If count moves over an end of the buffer list, it is extended
 " as needed from the mru list and all remaining listed buffers.
 " returns the same as s:extendbufs()
-function! s:findnext_extend(bufs, index, cnt) abort
-   let [bufs, idx, c] = [a:bufs, a:index, a:cnt]
+function! s:findnext_extend(bufs, index, count) abort
+   let [bufs, idx, c] = [a:bufs, a:index, a:count]
    if c != 0 " find in window local list
-      let [idx, c] = s:findnextbuf(bufs, idx, c)
+      let [idx, c] = s:findnext(bufs, idx, c)
    endif
    if c < 0 " mru only when going backwards
       let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
@@ -161,7 +161,7 @@ function! s:findnext_extend(bufs, index, cnt) abort
       if c < 0
          let fbufs = s:get_freebufs(a:bufs)
       else
-         " reverse and ignore mru buffers when going forwards
+         " ignore mru buffers when going forwards and reverse the direction
          let fbufs = reverse(s:get_freebufs(a:bufs + s:get_mrubufs(a:bufs)))
       endif
       let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, fbufs)
@@ -189,12 +189,12 @@ endfunction
 
 " Api Functions: {{{1
 
-" Change to the cnt'th next buffer.
-" Negative numbers to change to the -cnt'th previous buffer.
-function! bufstack#cmd#next(cnt) abort
+" Change to the count'th next buffer.
+" Negative numbers to change to the -count'th previous buffer.
+function! bufstack#cmd#next(count) abort
    let success = 0
    let stack = bufstack#get_stack()
-   let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:cnt)
+   let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:count)
    if c != 0 && (!g:bufstack_goend || bufs[idx] == bufnr('%'))
       echohl ErrorMsg
       echo printf('At %s of buffer list', c < 0 ? 'end' : 'start')
@@ -211,11 +211,10 @@ endfunction
 
 " Change to the alternate buffer.
 function! bufstack#cmd#alt(...) abort
-   let cnt = get(a:000, 0, -1)
    let success = 0
    let stack = bufstack#get_stack()
    call bufstack#applylast(stack)
-   if bufstack#cmd#next(cnt)
+   if bufstack#cmd#next(get(a:000, 0, -1))
       call bufstack#applylast(stack)
       let success = 1
    endif
@@ -225,14 +224,14 @@ endfunction
 " Send the current buffer to the bottom of the stack.
 " Does not affect any other windows.
 function! bufstack#cmd#bury(count) abort
-   let success = 0
-   let stack = bufstack#get_stack()
-   let bufnr = bufnr('%')
    if a:count == 0
       return 1
    endif
+   let success = 0
+   let stack = bufstack#get_stack()
+   let bufnr = bufnr('%')
    if bufstack#cmd#alt(-1)
-      " move buffer to the bottom of the stack
+      " move buffer to its new position
       let stack.bufs = filter(stack.bufs, 'v:val != bufnr')
       if a:count < 0 || a:count >= len(stack.bufs)
          call add(stack.bufs, bufnr)
@@ -250,10 +249,10 @@ endfunction
 " an empty buffer.
 function! bufstack#cmd#delete(bufnr, ...) abort
    let success = 0
-   let delwin = get(a:000, 0, 0)
+   let mybuf = bufnr('%')
    call s:forget(a:bufnr)
    silent exe 'bdelete' a:bufnr
-   if delwin
+   if mybuf == a:bufnr && get(a:000, 0, 0)
       silent! wincmd c
    endif
    return success
