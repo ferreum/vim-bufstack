@@ -26,6 +26,8 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
+" Options: {{{1
+
 if !exists('g:bufstack_max')
    let g:bufstack_max = 42
 endif
@@ -36,88 +38,19 @@ if !exists('g:bufstack_goend')
    let g:bufstack_goend = 1
 endif
 
-let g:bufstack#switching = 0
+" Variables: {{{1
 
+if !exists('g:bufstack_switching')
+   let g:bufstack_switching = 0
+endif
 if !exists('g:bufstack_mru')
    let g:bufstack_mru = []
 endif
 
-" Core: {{{1
-
-function! s:buflist_insert(list, item, max) abort
-   call insert(filter(a:list, 'v:val != a:item'), a:item)
-   if len(a:list) > a:max
-      call remove(a:list, a:max, len(a:list) - 1)
-   endif
-   return a:list
-endfunction
-
-function! bufstack#add_mru(bufnr) abort
-   call s:buflist_insert(g:bufstack_mru, a:bufnr, g:bufstack_max_mru)
-endfunction
-
-function! bufstack#addvisited(stack, bufnr) abort
-   call s:buflist_insert(a:stack.last, a:bufnr, g:bufstack_max)
-endfunction
-
-function! s:applylast_(stack) abort
-   " move visited buffers to top of the stack
-   let bufs = a:stack.bufs
-   let last = a:stack.last
-   call filter(bufs, 'index(last, v:val) < 0')
-   let bufs = extend(last, bufs)
-   if len(bufs) > g:bufstack_max
-      call remove(bufs, g:bufstack_max, len(bufs) - 1)
-   endif
-   let a:stack.bufs = bufs
-   let a:stack.last = []
-endfunction
-
-function! s:applyindex_(stack) abort
-   if !empty(a:stack.last)
-      call bufstack#addvisited(a:stack, a:stack.bufs[a:stack.index])
-      let a:stack.index = 0
-   endif
-endfunction
-
-function! bufstack#applylast(stack) abort
-   call s:applyindex_(a:stack)
-   call s:applylast_(a:stack)
-endfunction
-
-function! bufstack#maketop(stack, bufnr) abort
-   call s:applyindex_(a:stack)
-   call bufstack#addvisited(a:stack, a:bufnr)
-   call s:applylast_(a:stack)
-endfunction
-
-function! s:initstack() abort
-   let altwin = winnr('#')
-   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
-   if empty(w:bufstack)
-      let w:bufstack.bufs = []
-      let w:bufstack.last = []
-      let w:bufstack.index = 0
-   else
-      call bufstack#applylast(w:bufstack)
-   endif
-   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
-endfunction
-
-function! bufstack#get_stack() abort
-   if !exists('w:bufstack')
-      if buflisted(bufnr('%'))
-         call bufstack#add_mru(bufnr('%'))
-      endif
-      call s:initstack()
-   endif
-   return w:bufstack
-endfunction
-
 " Setup: {{{1
 
 function! s:bufenter() abort
-   if !g:bufstack#switching
+   if !g:bufstack_switching
       call bufstack#add_mru(bufnr('%'))
       call bufstack#maketop(bufstack#get_stack(), bufnr('%'))
    endif
@@ -132,18 +65,18 @@ endfunction
 augroup plugin_bufstack
    autocmd!
    autocmd BufEnter * call s:bufenter()
-   autocmd WinEnter * call bufstack#get_stack()
+   autocmd WinEnter * call bufstack#get_stack() " init window
    autocmd BufNew * call s:bufnew(expand("<abuf>"))
 augroup END
 
 " Mappings: {{{1
 
-nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#next(-v:count1)<CR>
-nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#next(v:count1)<CR>
-nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#delete(bufnr('%'))<CR>
-nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#delete(bufnr('%'), 1)<CR>
-nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#bury(v:count ? v:count : -1)<CR>
-nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#alt(-v:count1)<CR>
+nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#cmd#next(-v:count1)<CR>
+nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#cmd#next(v:count1)<CR>
+nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#cmd#delete(bufnr('%'))<CR>
+nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#cmd#delete(bufnr('%'), 1)<CR>
+nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#cmd#bury(v:count ? v:count : -1)<CR>
+nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#cmd#alt(-v:count1)<CR>
 
 " Test Mappings: {{{1
 

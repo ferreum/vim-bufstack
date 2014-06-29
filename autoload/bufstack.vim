@@ -1,5 +1,5 @@
 " File:        bufstack.vim
-" Author:      ferreum (ferreum)
+" Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
 " Last Change: 2014-06-29
 " License:     MIT license  {{{
@@ -26,237 +26,76 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-" Util: {{{1
-
-function! s:windo(cmd, ...) abort
-   let o_win = winnr()
-   try
-      windo call call(a:cmd, a:000)
-   finally
-      exe o_win . 'wincmd w'
-   endtry
-endfunction
-
-function! s:tabwindo(cmd, ...) abort
-   let o_tab = tabpagenr()
-   let args = [a:cmd] + a:000
-   try
-      tabdo call call('s:windo', args)
-   finally
-      exe 'tabp' o_tab
-   endtry
-endfunction
-
 " Core: {{{1
 
-function! s:gobuf(stack, bufnr) abort
-   let success = 0
-   call bufstack#addvisited(a:stack, bufnr('%'))
-   let g:bufstack#switching = 1
-   try
-      exe 'b' a:bufnr
-      call bufstack#add_mru(a:bufnr)
-      let success = 1
-   finally
-      let g:bufstack#switching = 0
-   endtry
-   return success
-endfunction
-
-" Get all buffers not in l.
-function! s:get_freebufs(l) abort
-   return filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
-endfunction
-
-" Get all buffers in mru and not in l.
-function! s:get_mrubufs(l) abort
-   return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
-endfunction
-
-" Find the cnt'th buffer to switch to.
-"   bufs  - The buffer list.
-"   index - The old buffer stack index.
-"   cnt   - The count.
-" returns [index, cnt]
-"   index - The found index
-"   cnt   - The remaining count if not enough
-"           buffers are in the list
-function! s:findnextbuf(bufs, index, cnt) abort
-   if a:index < 0
-      throw "index < 0"
+function! s:buflist_insert(list, item, max) abort
+   call insert(filter(a:list, 'v:val != a:item'), a:item)
+   if len(a:list) > a:max
+      call remove(a:list, a:max, len(a:list) - 1)
    endif
-   if a:cnt < 0
-      let ac = -a:cnt
-      let dir = 1
-      let start = a:index + 1
-      let end = len(a:bufs) - 1
+   return a:list
+endfunction
+
+function! bufstack#add_mru(bufnr) abort
+   call s:buflist_insert(g:bufstack_mru, a:bufnr, g:bufstack_max_mru)
+endfunction
+
+function! bufstack#addvisited(stack, bufnr) abort
+   call s:buflist_insert(a:stack.last, a:bufnr, g:bufstack_max)
+endfunction
+
+function! s:applylast_(stack) abort
+   " move visited buffers to top of the stack
+   let bufs = a:stack.bufs
+   let last = a:stack.last
+   call filter(bufs, 'index(last, v:val) < 0')
+   let bufs = extend(last, bufs)
+   if len(bufs) > g:bufstack_max
+      call remove(bufs, g:bufstack_max, len(bufs) - 1)
+   endif
+   let a:stack.bufs = bufs
+   let a:stack.last = []
+endfunction
+
+function! s:applyindex_(stack) abort
+   if !empty(a:stack.last)
+      call bufstack#addvisited(a:stack, a:stack.bufs[a:stack.index])
+      let a:stack.index = 0
+   endif
+endfunction
+
+function! bufstack#applylast(stack) abort
+   call s:applyindex_(a:stack)
+   call s:applylast_(a:stack)
+endfunction
+
+function! bufstack#maketop(stack, bufnr) abort
+   call s:applyindex_(a:stack)
+   call bufstack#addvisited(a:stack, a:bufnr)
+   call s:applylast_(a:stack)
+endfunction
+
+function! s:initstack() abort
+   let altwin = winnr('#')
+   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
+   if empty(w:bufstack)
+      let w:bufstack.bufs = []
+      let w:bufstack.last = []
+      let w:bufstack.index = 0
    else
-      let ac = a:cnt
-      let dir = -1
-      let start = a:index - 1
-      let end = 0
+      call bufstack#applylast(w:bufstack)
    endif
-   let idx = a:index
-   for i in range(start, end, dir)
-      if buflisted(a:bufs[i])
-         let idx = i
-         let ac -= 1
-         if ac <= 0
-            return [i, 0]
-         endif
+   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
+endfunction
+
+function! bufstack#get_stack() abort
+   if !exists('w:bufstack')
+      if buflisted(bufnr('%'))
+         call bufstack#add_mru(bufnr('%'))
       endif
-   endfor
-   return [idx, a:cnt < 0 ? -ac : ac]
-endfunction
-
-" Extend the buffer list for switching to the cnt'th buffer.
-"   bufs  - The buffer list.
-"   index - The old buffer stack index.
-"   cnt   - The count.
-"   fbufs - List of buffers to extend the buffer list.
-" returns [bufs, index, cnt]
-"   bufs  - The new buffer list
-"   index - The found index
-"   cnt   - The remaining count if not enough buffers could be found.
-function! s:extendbufs(bufs, idx, cnt, fbufs) abort
-   if a:idx < 0
-      throw "idx < 0"
+      call s:initstack()
    endif
-   if empty(a:fbufs)
-      return [a:bufs, a:idx, a:cnt]
-   endif
-   let bufs = a:bufs
-   if a:cnt < 0
-      " append first -cnt free buffers
-      let ac = -a:cnt
-      let bufs = extend(a:fbufs[:(ac - 1)], bufs, 0)
-      let idx = len(bufs) - 1
-   else
-      " prepend last cnt free buffers
-      let ac = a:cnt
-      let first = len(a:fbufs) - ac
-      let bufs = extend(a:fbufs[(first < 0 ? 0 : first):], bufs)
-      let idx = 0
-   endif
-   let ac -= len(a:fbufs)
-   if ac < 0
-      let ac = 0
-   endif
-   return [bufs, idx, a:cnt < 0 ? -ac : ac]
-endfunction
-
-" Find the cnt'th buffer to switch to.
-" If cnt moves over an end of the buffer list, it is extended
-" as needed from the mru list and all remaining listed buffers.
-" returns the same as s:extendbufs()
-function! s:findnext_extend(bufs, index, cnt) abort
-   let [bufs, idx, c] = [a:bufs, a:index, a:cnt]
-   if c != 0 " find in window local list
-      let [idx, c] = s:findnextbuf(bufs, idx, c)
-   endif
-   if c < 0 " mru only when going backwards
-      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, s:get_mrubufs(a:bufs))
-   endif
-   if c != 0
-      if c < 0
-         let fbufs = s:get_freebufs(a:bufs)
-      else
-         " reverse and ignore mru buffers when going forwards
-         let fbufs = reverse(s:get_freebufs(a:bufs + s:get_mrubufs(a:bufs)))
-      endif
-      let [bufs, idx, c] = s:extendbufs(a:bufs, idx, c, fbufs)
-   endif
-   return [bufs, idx, c]
-endfunction
-
-function! s:forget_win(bufnr) abort
-   let stack = bufstack#get_stack()
-   if bufnr('%') == a:bufnr
-      silent if !bufstack#alt()
-         enew
-      endif
-      call bufstack#applylast(stack)
-   endif
-   call filter(stack.bufs, 'v:val != a:bufnr')
-endfunction
-
-" Go to every window with the given buffer, change to
-" the alternate buffer and remove the buffer from the stack.
-function! s:forget(bufnr) abort
-   call s:tabwindo(function('s:forget_win'), a:bufnr)
-   call filter(g:bufstack_mru, 'v:val != a:bufnr')
-endfunction
-
-" Api Functions: {{{1
-
-" Change to the cnt'th next buffer.
-" Negative numbers to change to the -cnt'th previous buffer.
-function! bufstack#next(cnt) abort
-   let success = 0
-   let stack = bufstack#get_stack()
-   let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:cnt)
-   if c != 0 && (!g:bufstack_goend || bufs[idx] == bufnr('%'))
-      echohl ErrorMsg
-      echo printf('At %s of buffer list', c < 0 ? 'end' : 'start')
-      echohl None
-   else
-      let stack.bufs = bufs
-      let stack.index = idx
-      let bn = bufs[idx]
-      call s:gobuf(stack, bn)
-      let success = 1
-   endif
-   return success
-endfunction
-
-" Change to the alternate buffer.
-function! bufstack#alt(...) abort
-   let cnt = get(a:000, 0, -1)
-   let success = 0
-   let stack = bufstack#get_stack()
-   call bufstack#applylast(stack)
-   if bufstack#next(cnt)
-      call bufstack#applylast(stack)
-      let success = 1
-   endif
-   return success
-endfunction
-
-" Send the current buffer to the bottom of the stack.
-" Does not affect any other windows.
-function! bufstack#bury(count) abort
-   let success = 0
-   let stack = bufstack#get_stack()
-   let bufnr = bufnr('%')
-   if a:count == 0
-      return 1
-   endif
-   if bufstack#alt(-1)
-      " move buffer to the bottom of the stack
-      let stack.bufs = filter(stack.bufs, 'v:val != bufnr')
-      if a:count < 0 || a:count >= len(stack.bufs)
-         call add(stack.bufs, bufnr)
-      else
-         call insert(stack.bufs, bufnr, a:count)
-      endif
-      let success = 1
-   endif
-   return success
-endfunction
-
-" Delete the buffer without closing any windows.
-" Windows showing the buffer are changed to the alternate
-" buffer. If one has no alternate buffer, it is changed to
-" an empty buffer.
-function! bufstack#delete(bufnr, ...) abort
-   let success = 0
-   let delwin = get(a:000, 0, 0)
-   call s:forget(a:bufnr)
-   silent exe 'bdelete' a:bufnr
-   if delwin
-      silent! wincmd c
-   endif
-   return success
+   return w:bufstack
 endfunction
 
 let &cpo = s:save_cpo
