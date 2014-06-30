@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-06-29
+" Last Change: 2014-06-30
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -28,6 +28,7 @@ set cpo&vim
 
 " Util: {{{1
 
+" @vimlint(EVL103, 1, a:cmd)
 function! s:windo(cmd, ...) abort
    let o_win = winnr()
    try
@@ -36,7 +37,9 @@ function! s:windo(cmd, ...) abort
       exe o_win . 'wincmd w'
    endtry
 endfunction
+" @vimlint(EVL103, 0, a:cmd)
 
+" @vimlint(EVL102, 1, l:args)
 function! s:tabwindo(cmd, ...) abort
    let o_tab = tabpagenr()
    let args = extend([a:cmd], a:000)
@@ -46,6 +49,7 @@ function! s:tabwindo(cmd, ...) abort
       exe 'tabp' o_tab
    endtry
 endfunction
+" @vimlint(EVL102, 0, l:args)
 
 " Core: {{{1
 
