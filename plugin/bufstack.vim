@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-20
-" Last Change: 2014-06-29
+" Last Change: 2014-07-01
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -88,6 +88,15 @@ if get(g:, 'bufstack_mappings', 1)
    nmap ^D <Plug>(bufstack-delete-win)
    nmap ^^ <Plug>(bufstack-alt)
    nmap <C-^> <Plug>(bufstack-alt)
+endif
+
+if get(g:, 'bufstack_leadermappings', 0)
+   nmap <Leader>bp <Plug>(bufstack-previous)
+   nmap <Leader>bn <Plug>(bufstack-next)
+   nmap <Leader>bb <Plug>(bufstack-bury)
+   nmap <Leader>bd <Plug>(bufstack-delete)
+   nmap <Leader>bD <Plug>(bufstack-delete-win)
+   nmap <Leader>b^ <Plug>(bufstack-alt)
 endif
 
 let &cpo = s:save_cpo
