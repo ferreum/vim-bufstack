@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-06-29
+" Last Change: 2014-07-01
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -75,22 +75,26 @@ function! bufstack#maketop(stack, bufnr) abort
    call s:applylast_(a:stack)
 endfunction
 
-function! s:init_current() abort
-   let altwin = winnr('#')
-   let w:bufstack = altwin >= 1 ? deepcopy(getwinvar(altwin, 'bufstack', {})) : {}
-   let w:bufstack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
-   let w:bufstack.last = []
-   let w:bufstack.index = 0
+function! s:init_window(winnr) abort
+   let stack = {}
+   let stack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
+   let stack.last = []
+   let stack.index = 0
+   call setwinvar(a:winnr, 'bufstack', stack)
+   return stack
 endfunction
 
-function! bufstack#get_stack() abort
-   if !exists('w:bufstack')
-      if buflisted(bufnr('%'))
-         call bufstack#add_mru(bufnr('%'))
+function! bufstack#get_stack(...) abort
+   let winnr = a:0 > 0 ? a:1 : winnr()
+   let stack = getwinvar(winnr, 'bufstack', {})
+   if empty(stack)
+      if buflisted(winbufnr(winnr))
+         call bufstack#add_mru(winbufnr(winnr))
       endif
-      call s:init_current()
+      return s:init_window(winnr)
+   else
+      return stack
    endif
-   return w:bufstack
 endfunction
 
 let &cpo = s:save_cpo
