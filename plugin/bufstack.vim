@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-20
-" Last Change: 2014-07-01
+" Last Change: 2014-07-02
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -69,6 +69,14 @@ augroup plugin_bufstack
    autocmd BufNew * call s:bufnew(expand("<abuf>"))
 augroup END
 
+" Commands: {{{1
+
+command! -count=1 BsPrevious call bufstack#cmd#next(-<count>)
+command! -count=1 BsNext call bufstack#cmd#next(<count>)
+command! -count=1 BsBury call bufstack#cmd#bury(<count>)
+command! -count=1 -bang BsDelete call bufstack#cmd#delete(bufnr('%'), <q-bang> == '!')
+command! -count=1 BsAlternate call bufstack#cmd#alt(-<count>)
+
 " Mappings: {{{1
 
 nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#cmd#next(-v:count1)<CR>
@@ -80,7 +88,7 @@ nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#cmd#alt(-v:count1)<CR>
 
 " Test Mappings: {{{1
 
-if get(g:, 'bufstack_mappings', 1)
+if get(g:, 'bufstack_mappings', 0)
    nmap ^p <Plug>(bufstack-previous)
    nmap ^n <Plug>(bufstack-next)
    nmap ^b <Plug>(bufstack-bury)
@@ -90,13 +98,14 @@ if get(g:, 'bufstack_mappings', 1)
    nmap <C-^> <Plug>(bufstack-alt)
 endif
 
-if get(g:, 'bufstack_leadermappings', 0)
-   nmap <Leader>bp <Plug>(bufstack-previous)
+if get(g:, 'bufstack_leadermappings', 1)
+   nmap <Leader>bb <Plug>(bufstack-previous)
    nmap <Leader>bn <Plug>(bufstack-next)
-   nmap <Leader>bb <Plug>(bufstack-bury)
+   nmap <Leader>bg <Plug>(bufstack-bury)
    nmap <Leader>bd <Plug>(bufstack-delete)
    nmap <Leader>bD <Plug>(bufstack-delete-win)
    nmap <Leader>b^ <Plug>(bufstack-alt)
+   nmap <Leader>ba <Plug>(bufstack-alt)
 endif
 
 let &cpo = s:save_cpo
