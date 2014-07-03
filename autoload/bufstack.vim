@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-07-01
+" Last Change: 2014-07-03
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -42,6 +42,7 @@ endfunction
 
 function! bufstack#addvisited(stack, bufnr) abort
    call s:buflist_insert(a:stack.last, a:bufnr, g:bufstack_max)
+   let a:stack.tick += 1
 endfunction
 
 function! s:applylast_(stack) abort
@@ -65,14 +66,20 @@ function! s:applyindex_(stack) abort
 endfunction
 
 function! bufstack#applylast(stack) abort
-   call s:applyindex_(a:stack)
-   call s:applylast_(a:stack)
+   if !empty(a:stack.last)
+      call s:applyindex_(a:stack)
+      call s:applylast_(a:stack)
+      let a:stack.tick += 1
+   endif
 endfunction
 
 function! bufstack#maketop(stack, bufnr) abort
-   call s:applyindex_(a:stack)
-   call bufstack#addvisited(a:stack, a:bufnr)
-   call s:applylast_(a:stack)
+   if !empty(a:stack.last) || empty(a:stack.bufs) || a:stack.bufs[0] != a:bufnr
+      call s:applyindex_(a:stack)
+      call bufstack#addvisited(a:stack, a:bufnr)
+      call s:applylast_(a:stack)
+      let a:stack.tick += 1
+   endif
 endfunction
 
 function! s:init_window(winnr) abort
@@ -80,6 +87,7 @@ function! s:init_window(winnr) abort
    let stack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
    let stack.last = []
    let stack.index = 0
+   let stack.tick = 0
    call setwinvar(a:winnr, 'bufstack', stack)
    return stack
 endfunction

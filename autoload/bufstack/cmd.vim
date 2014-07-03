@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-06-30
+" Last Change: 2014-07-03
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -53,18 +53,14 @@ endfunction
 
 " Core: {{{1
 
-function! s:gobuf(stack, bufnr) abort
-   let success = 0
-   call bufstack#addvisited(a:stack, bufnr('%'))
+function! s:gobuf(bufnr) abort
    let g:bufstack_switching = 1
    try
       exe 'b' a:bufnr
       call bufstack#add_mru(a:bufnr)
-      let success = 1
    finally
       let g:bufstack_switching = 0
    endtry
-   return success
 endfunction
 
 " Get all buffers not in l.
@@ -204,10 +200,11 @@ function! bufstack#cmd#next(count) abort
       echo printf('At %s of buffer list', c < 0 ? 'end' : 'start')
       echohl None
    else
+      let oldb = bufnr('%')
+      call s:gobuf(bufs[idx])
       let stack.bufs = bufs
       let stack.index = idx
-      let bn = bufs[idx]
-      call s:gobuf(stack, bn)
+      call bufstack#addvisited(stack, oldb)
       let success = 1
    endif
    return success
@@ -236,7 +233,7 @@ function! bufstack#cmd#bury(count) abort
    let bufnr = bufnr('%')
    if bufstack#cmd#alt(-1)
       " move buffer to its new position
-      let stack.bufs = filter(stack.bufs, 'v:val != bufnr')
+      call filter(stack.bufs, 'v:val != bufnr')
       if a:count < 0 || a:count >= len(stack.bufs)
          call add(stack.bufs, bufnr)
       else
