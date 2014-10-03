@@ -1,7 +1,7 @@
 " File:        util.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-07-01
-" Last Change: 2014-07-01
+" Last Change: 2014-10-03
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -26,6 +26,10 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
+function! bufstack#util#is_listed(bufnr) abort
+   return buflisted(a:bufnr)
+endfunction
+
 function! bufstack#util#list_mru(...) abort
    let max = a:0 >= 1 ? a:1 : 99999
    if max <= 0
@@ -35,10 +39,10 @@ function! bufstack#util#list_mru(...) abort
    let bufs = []
    if !empty(stack.last)
       let current = stack.bufs[stack.index]
-      let bufs = insert(filter(copy(stack.last), 'buflisted(v:val) && v:val != current'), current)
+      let bufs = insert(filter(copy(stack.last), 'bufstack#util#is_listed(v:val) && v:val != current'), current)
    endif
    if len(bufs) < max
-      call extend(bufs, filter(copy(stack.bufs), 'buflisted(v:val) && index(bufs, v:val) < 0'))
+      call extend(bufs, filter(copy(stack.bufs), 'bufstack#util#is_listed(v:val) && index(bufs, v:val) < 0'))
    endif
    return bufs[:(max-1)]
 endfunction
@@ -49,7 +53,7 @@ function! bufstack#util#list_bufs(...) abort
       return []
    endif
    let stack = a:0 >= 2 ? a:2 : bufstack#get_stack()
-   return filter(copy(stack.bufs), 'buflisted(v:val)')[:(max-1)]
+   return filter(copy(stack.bufs), 'bufstack#util#is_listed(v:val)')[:(max-1)]
 endfunction
 
 function! bufstack#util#list_bufs_raw(...) abort
@@ -59,6 +63,23 @@ function! bufstack#util#list_bufs_raw(...) abort
    endif
    let stack = a:0 >= 2 ? a:2 : bufstack#get_stack()
    return stack.bufs[:(max-1)]
+endfunction
+
+function! bufstack#util#list_status_bufs(...) abort
+   let max = a:0 >= 1 ? a:1 : 99999
+   if max <= 0
+      return []
+   endif
+   let stack = a:0 >= 2 ? a:2 : bufstack#get_stack()
+   if empty(stack.bufs)
+      return []
+   endif
+   if !empty(stack.last)
+      let current = stack.bufs[stack.index]
+   else
+      let current = stack.bufs[0]
+   endif
+   return filter(copy(stack.bufs), 'v:val == current || bufstack#util#is_listed(v:val)')[:(max-1)]
 endfunction
 
 let &cpo = s:save_cpo
