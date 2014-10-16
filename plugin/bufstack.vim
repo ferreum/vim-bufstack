@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-20
-" Last Change: 2014-07-04
+" Last Change: 2014-10-16
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -87,6 +87,7 @@ nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#cmd#delete(bufnr('%'))<CR>
 nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#cmd#delete(bufnr('%'), 1)<CR>
 nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#cmd#bury(v:count ? v:count : -1)<CR>
 nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#cmd#alt(-v:count1)<CR>
+nnoremap <Plug>(bufstack-only) :<C-u>call bufstack#cmd#only(v:count1)<CR>
 
 " Test Mappings: {{{1
 
@@ -97,6 +98,7 @@ if get(g:, 'bufstack_mappings', 0)
    nmap ^d <Plug>(bufstack-delete)
    nmap ^D <Plug>(bufstack-delete-win)
    nmap ^^ <Plug>(bufstack-alt)
+   nmap ^o <Plug>(bufstack-only)
    nmap <C-^> <Plug>(bufstack-alt)
 endif
 
@@ -109,6 +111,7 @@ if get(g:, 'bufstack_leadermappings', 1)
    nmap <Leader>bD <Plug>(bufstack-delete-win)
    nmap <Leader>b^ <Plug>(bufstack-alt)
    nmap <Leader>ba <Plug>(bufstack-alt)
+   nmap <Leader>bo <Plug>(bufstack-only)
 endif
 
 let &cpo = s:save_cpo

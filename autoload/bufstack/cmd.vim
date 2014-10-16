@@ -222,7 +222,9 @@ function! bufstack#cmd#alt(...) abort
    return success
 endfunction
 
-" Send the current buffer to the bottom of the stack.
+" Remove the current buffer from the stack.
+" With count > 1, moves the buffer count positions down.
+" Switches to the previous buffer.
 " Does not affect any other windows.
 function! bufstack#cmd#bury(count) abort
    if a:count == 0
@@ -244,6 +246,19 @@ function! bufstack#cmd#bury(count) abort
       let success = 1
    endif
    return success
+endfunction
+
+" Remove all but count last used buffers from the stack.
+" Does not affect any other windows.
+function! bufstack#cmd#only(count) abort
+   let cnt = a:count < 1 ? 1 : a:count
+   let stack = bufstack#get_stack()
+   call bufstack#applylast(stack)
+   let bufs = stack.bufs
+   if len(bufs) > cnt
+      call remove(bufs, cnt, len(bufs) - 1)
+   endif
+   return 1
 endfunction
 
 " Delete the buffer without closing any windows.
