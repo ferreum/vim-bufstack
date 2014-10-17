@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-10-16
+" Last Change: 2014-10-17
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -257,6 +257,7 @@ function! bufstack#cmd#only(count) abort
    let bufs = stack.bufs
    if len(bufs) > cnt
       call remove(bufs, cnt, len(bufs) - 1)
+      let stack.tick += 1
    endif
    return 1
 endfunction
