@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-07-03
+" Last Change: 2014-10-17
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -82,24 +82,36 @@ function! bufstack#maketop(stack, bufnr) abort
    endif
 endfunction
 
-function! s:init_window(winnr) abort
+function! s:init_window(winnr, alt) abort
    let stack = {}
-   let stack.bufs = filter(copy(g:bufstack_mru), 'buflisted(v:val)')
+   let bufs = []
+   if a:alt > 0
+      let altstack = bufstack#get_stack(a:alt)
+      call extend(bufs, altstack.bufs)
+   endif
+   let stack.bufs = bufs
    let stack.last = []
    let stack.index = 0
    let stack.tick = 0
+   call bufstack#maketop(stack, winbufnr(a:winnr))
    call setwinvar(a:winnr, 'bufstack', stack)
    return stack
 endfunction
 
 function! bufstack#get_stack(...) abort
-   let winnr = a:0 > 0 ? a:1 : winnr()
+   if a:0 > 0
+      let winnr = a:1
+      let alt = 0
+   else
+      let winnr = winnr()
+      let alt = winnr('#')
+   endif
    let stack = getwinvar(winnr, 'bufstack', {})
    if empty(stack)
       if buflisted(winbufnr(winnr))
          call bufstack#add_mru(winbufnr(winnr))
       endif
-      return s:init_window(winnr)
+      return s:init_window(winnr, alt)
    else
       return stack
    endif
