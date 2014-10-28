@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-20
-" Last Change: 2014-10-16
+" Last Change: 2014-10-28
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -81,13 +81,13 @@ command! -count=1 BsAlternate call bufstack#cmd#alt(-<count>)
 
 " Mappings: {{{1
 
-nnoremap <Plug>(bufstack-previous) :<C-u>call bufstack#cmd#next(-v:count1)<CR>
-nnoremap <Plug>(bufstack-next) :<C-u>call bufstack#cmd#next(v:count1)<CR>
-nnoremap <Plug>(bufstack-delete) :<C-u>call bufstack#cmd#delete(bufnr('%'))<CR>
-nnoremap <Plug>(bufstack-delete-win) :<C-u>call bufstack#cmd#delete(bufnr('%'), 1)<CR>
-nnoremap <Plug>(bufstack-bury) :<C-u>call bufstack#cmd#bury(v:count ? v:count : -1)<CR>
-nnoremap <Plug>(bufstack-alt) :<C-u>call bufstack#cmd#alt(-v:count1)<CR>
-nnoremap <Plug>(bufstack-only) :<C-u>call bufstack#cmd#only(v:count1)<CR>
+nnoremap <silent> <Plug>(bufstack-previous) :<C-u>call bufstack#cmd#next(-v:count1)<CR>
+nnoremap <silent> <Plug>(bufstack-next) :<C-u>call bufstack#cmd#next(v:count1)<CR>
+nnoremap <silent> <Plug>(bufstack-delete) :<C-u>call bufstack#cmd#delete(bufnr('%'))<CR>
+nnoremap <silent> <Plug>(bufstack-delete-win) :<C-u>call bufstack#cmd#delete(bufnr('%'), 1)<CR>
+nnoremap <silent> <Plug>(bufstack-bury) :<C-u>call bufstack#cmd#bury(v:count ? v:count : -1)<CR>
+nnoremap <silent> <Plug>(bufstack-alt) :<C-u>call bufstack#cmd#alt(-v:count1)<CR>
+nnoremap <silent> <Plug>(bufstack-only) :<C-u>call bufstack#cmd#only(v:count1)<CR>
 
 " Test Mappings: {{{1
 
