@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-10-17
+" Last Change: 2014-10-28
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -270,7 +270,9 @@ function! bufstack#cmd#delete(bufnr, ...) abort
    let success = 0
    let mybuf = bufnr('%')
    call s:forget(a:bufnr)
-   silent exe 'bdelete' a:bufnr
+   if bufloaded(a:bufnr) " incase the buffer was deleted by leaving it
+      silent exe 'bdelete' a:bufnr
+   endif
    if mybuf == a:bufnr && get(a:000, 0, 0)
       silent! wincmd c
    endif
