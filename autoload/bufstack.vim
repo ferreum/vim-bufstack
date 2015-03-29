@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-10-17
+" Last Change: 2015-03-29
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -74,7 +74,7 @@ function! bufstack#applylast(stack) abort
 endfunction
 
 function! bufstack#maketop(stack, bufnr) abort
-   if !empty(a:stack.last) || empty(a:stack.bufs) || a:stack.bufs[0] != a:bufnr
+   if empty(a:stack.bufs) || a:stack.bufs[a:stack.index] != a:bufnr
       call s:applyindex_(a:stack)
       call bufstack#addvisited(a:stack, a:bufnr)
       call s:applylast_(a:stack)
