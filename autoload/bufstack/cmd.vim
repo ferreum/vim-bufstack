@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2014-10-28
+" Last Change: 2015-03-29
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -180,6 +180,18 @@ function! s:forget_win(bufnr) abort
    call filter(stack.bufs, 'v:val != a:bufnr')
 endfunction
 
+function! s:boundserror(bufs, idx, c) abort
+   " TODO use stack's current buffer instead of bufnr('%')
+   if a:c != 0 && (!g:bufstack_goend || a:bufs[a:idx] == bufnr('%'))
+      echohl ErrorMsg
+      echo printf('At %s of buffer list', a:c < 0 ? 'end' : 'start')
+      echohl None
+      return 1
+   else
+      return 0
+   end
+endfunction
+
 " Go to every window with the given buffer, change to
 " the alternate buffer and remove the buffer from the stack.
 function! s:forget(bufnr) abort
@@ -195,11 +207,7 @@ function! bufstack#cmd#next(count) abort
    let success = 0
    let stack = bufstack#get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:count)
-   if c != 0 && (!g:bufstack_goend || bufs[idx] == bufnr('%'))
-      echohl ErrorMsg
-      echo printf('At %s of buffer list', c < 0 ? 'end' : 'start')
-      echohl None
-   else
+   if !s:boundserror(bufs, idx, c)
       let oldb = bufnr('%')
       call s:gobuf(bufs[idx])
       let stack.bufs = bufs
@@ -213,10 +221,19 @@ endfunction
 " Change to the alternate buffer.
 function! bufstack#cmd#alt(...) abort
    let success = 0
+   let cnt = get(a:000, 0, -1)
    let stack = bufstack#get_stack()
-   call bufstack#applylast(stack)
-   if bufstack#cmd#next(get(a:000, 0, -1))
-      call bufstack#applylast(stack)
+   let tmps = deepcopy(stack)
+   call bufstack#applylast(tmps)
+   let [idx, c] = s:findnext(tmps.bufs, tmps.index, cnt)
+   if !s:boundserror(tmps.bufs, idx, c)
+      let newbuf = tmps.bufs[idx]
+      let newidx = index(stack.bufs, newbuf)
+      let oldb = bufnr('%')
+      call s:gobuf(newbuf)
+      let stack.index = newidx
+      call filter(stack.last, 'v:val != newbuf')
+      call bufstack#addvisited(stack, oldb)
       let success = 1
    endif
    return success
@@ -232,10 +249,13 @@ function! bufstack#cmd#bury(count) abort
    endif
    let success = 0
    let stack = bufstack#get_stack()
+   call bufstack#applylast(stack)
    let bufnr = bufnr('%')
    if bufstack#cmd#alt(-1)
+      call bufstack#applylast(stack)
       " move buffer to its new position
       call filter(stack.bufs, 'v:val != bufnr')
+      call filter(stack.last, 'v:val != bufnr')
       if a:count > 0
          if a:count >= len(stack.bufs)
             call add(stack.bufs, bufnr)
