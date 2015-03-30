@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2015-03-29
+" Last Change: 2015-03-30
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -84,14 +84,16 @@ endfunction
 
 function! s:init_window(winnr, alt) abort
    let stack = {}
-   let bufs = []
    if a:alt > 0
       let altstack = bufstack#get_stack(a:alt)
-      call extend(bufs, altstack.bufs)
+      let stack.bufs = copy(altstack.bufs)
+      let stack.last = copy(altstack.last)
+      let stack.index = altstack.index
+   else
+      let stack.bufs = []
+      let stack.last = []
+      let stack.index = 0
    endif
-   let stack.bufs = bufs
-   let stack.last = []
-   let stack.index = 0
    let stack.tick = 0
    call bufstack#maketop(stack, winbufnr(a:winnr))
    call setwinvar(a:winnr, 'bufstack', stack)
