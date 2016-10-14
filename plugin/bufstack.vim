@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-20
-" Last Change: 2014-10-28
+" Last Change: 2016-10-14
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -54,7 +54,7 @@ function! s:bufenter() abort
       let bn = bufnr('%')
       let stack = bufstack#get_stack()
       call bufstack#add_mru(bn)
-      call bufstack#maketop(stack, bn)
+      call bufstack#update_current(stack, bn)
    endif
 endfunction
 

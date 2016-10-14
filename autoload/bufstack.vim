@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2015-03-30
+" Last Change: 2016-10-14
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -73,11 +73,20 @@ function! bufstack#applylast(stack) abort
    endif
 endfunction
 
-function! bufstack#maketop(stack, bufnr) abort
-   if empty(a:stack.bufs) || a:stack.bufs[a:stack.index] != a:bufnr
-      call s:applyindex_(a:stack)
-      call bufstack#addvisited(a:stack, a:bufnr)
-      call s:applylast_(a:stack)
+function! bufstack#update_current(stack, bufnr) abort
+   " Update stack.index to point to bufnr.
+   " If bufnr is not in the stack, insert it at index.
+   let bufs = a:stack.bufs
+   if empty(bufs) || bufs[a:stack.index] != a:bufnr
+      let bufidx = index(bufs, a:bufnr)
+      if !empty(bufs)
+         call bufstack#addvisited(a:stack, bufs[a:stack.index])
+      endif
+      if bufidx < 0
+         call insert(bufs, a:bufnr, a:stack.index)
+      else
+         let a:stack.index = bufidx
+      endif
       let a:stack.tick += 1
    endif
 endfunction
@@ -95,7 +104,7 @@ function! s:init_window(winnr, alt) abort
       let stack.index = 0
    endif
    let stack.tick = 0
-   call bufstack#maketop(stack, winbufnr(a:winnr))
+   call bufstack#update_current(stack, winbufnr(a:winnr))
    call setwinvar(a:winnr, 'bufstack', stack)
    return stack
 endfunction
