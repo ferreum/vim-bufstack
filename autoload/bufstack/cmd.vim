@@ -182,6 +182,7 @@ function! s:forget_win(bufnr) abort
          let stack.index -= 1
       endif
       call remove(stack.bufs, index)
+      call filter(stack.last, 'v:val != a:bufnr')
    endif
 endfunction
 
@@ -300,7 +301,11 @@ function! bufstack#cmd#delete(bufnr, ...) abort
    let bufnr = a:bufnr < 0 ? mybuf : a:bufnr
    call s:forget(bufnr)
    if bufloaded(bufnr) " incase the buffer was deleted by leaving it
-      silent exe 'bdelete' bufnr
+      try
+         exe 'bdelete' bufnr
+      catch /\m^Vim\%((\a\+)\)\=:E516/
+         return 0
+      endtry
    endif
    if mybuf == bufnr && get(a:000, 0, 0)
       silent! wincmd c
