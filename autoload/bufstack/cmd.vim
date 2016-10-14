@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2016-10-14
+" Last Change: 2016-10-15
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -253,20 +253,23 @@ function! bufstack#cmd#bury(count) abort
       return 1
    endif
    let success = 0
-   let stack = bufstack#get_stack()
-   call bufstack#applylast(stack)
-   let bufnr = bufnr('%')
    if bufstack#cmd#alt(-1)
-      call bufstack#applylast(stack)
-      " move buffer to its new position
-      call filter(stack.bufs, 'v:val != bufnr')
-      call filter(stack.last, 'v:val != bufnr')
+      let stack = bufstack#get_stack()
+      let bufnr = stack.last[0]
+      let index = index(stack.bufs, bufnr)
+      call remove(stack.bufs, index)
+      call remove(stack.last, 0)
       if a:count > 0
-         if a:count >= len(stack.bufs)
+         call add(stack.last, bufnr)
+         let newpos = index + a:count
+         if newpos >= len(stack.bufs)
             call add(stack.bufs, bufnr)
          else
             call insert(stack.bufs, bufnr, a:count)
          endif
+      endif
+      if index < stack.index && (a:count <= 0 || newpos >= stack.index)
+         let stack.index -= 1
       endif
       let success = 1
    endif
