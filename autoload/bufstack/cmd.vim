@@ -186,7 +186,14 @@ function! s:forget_win(bufnr) abort
    endif
 endfunction
 
-function! s:boundserror(bufs, idx, c, startcount) abort
+" Go to every window with the given buffer, change to
+" the alternate buffer and remove the buffer from the stack.
+function! s:forget(bufnr) abort
+   call s:tabwindo(function('s:forget_win'), a:bufnr)
+   call filter(g:bufstack_mru, 'v:val != a:bufnr')
+endfunction
+
+function! s:boundscheck(c, startcount) abort
    if a:c != 0 && (!g:bufstack_goend || a:c == a:startcount)
       echohl ErrorMsg
       echo printf('At %s of buffer list', a:c < 0 ? 'end' : 'start')
@@ -197,13 +204,6 @@ function! s:boundserror(bufs, idx, c, startcount) abort
    end
 endfunction
 
-" Go to every window with the given buffer, change to
-" the alternate buffer and remove the buffer from the stack.
-function! s:forget(bufnr) abort
-   call s:tabwindo(function('s:forget_win'), a:bufnr)
-   call filter(g:bufstack_mru, 'v:val != a:bufnr')
-endfunction
-
 " Api Functions: {{{1
 
 " Change to the count'th next buffer.
@@ -212,7 +212,7 @@ function! bufstack#cmd#next(count) abort
    let success = 0
    let stack = bufstack#get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:count)
-   if !s:boundserror(bufs, idx, c, a:count)
+   if !s:boundscheck(c, a:count)
       let oldb = bufstack#util#get_current_bufnr(stack)
       call s:gobuf(bufs[idx])
       let stack.bufs = bufs
@@ -231,7 +231,7 @@ function! bufstack#cmd#alt(...) abort
    let tmps = deepcopy(stack)
    call bufstack#applylast(tmps)
    let [idx, c] = s:findnext(tmps.bufs, tmps.index, cnt)
-   if !s:boundserror(tmps.bufs, idx, c, cnt)
+   if !s:boundscheck(c, cnt)
       let newbuf = tmps.bufs[idx]
       let newidx = index(stack.bufs, newbuf)
       let oldb = bufstack#util#get_current_bufnr(stack)
