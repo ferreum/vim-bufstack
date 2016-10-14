@@ -1,7 +1,7 @@
 " File:        util.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-07-01
-" Last Change: 2016-10-14
+" Last Change: 2016-10-15
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -27,7 +27,18 @@ let s:save_cpo = &cpo
 set cpo&vim
 
 function! bufstack#util#is_listed(bufnr) abort
-   return buflisted(a:bufnr)
+   return buflisted(a:bufnr) && getbufvar(a:bufnr, '&bufhidden', '') == ''
+endfunction
+
+function! bufstack#util#get_current_bufnr(...) abort
+   let stack = a:0 ? a:1 : bufstack#get_stack()
+   if empty(stack.bufs)
+      return bufnr('%')
+   elseif empty(stack.last)
+      return stack.bufs[0]
+   else
+      return stack.bufs[stack.index]
+   endif
 endfunction
 
 function! bufstack#util#list_mru(...) abort

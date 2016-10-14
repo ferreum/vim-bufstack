@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2016-10-14
+" Last Change: 2016-10-15
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -119,7 +119,7 @@ function! bufstack#get_stack(...) abort
    endif
    let stack = getwinvar(winnr, 'bufstack', {})
    if empty(stack)
-      if buflisted(winbufnr(winnr))
+      if bufstack#util#is_listed(winbufnr(winnr))
          call bufstack#add_mru(winbufnr(winnr))
       endif
       return s:init_window(winnr, alt)

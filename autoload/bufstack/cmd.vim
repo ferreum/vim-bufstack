@@ -65,12 +65,12 @@ endfunction
 
 " Get all buffers not in l.
 function! s:get_freebufs(l) abort
-   return filter(range(1, bufnr('$')), 'buflisted(v:val) && index(a:l, v:val) < 0')
+   return filter(range(1, bufnr('$')), 'bufstack#util#is_listed(v:val) && index(a:l, v:val) < 0')
 endfunction
 
 " Get all buffers in mru and not in l.
 function! s:get_mrubufs(l) abort
-   return filter(copy(g:bufstack_mru), 'buflisted(v:val) && index(a:l, v:val) < 0')
+   return filter(copy(g:bufstack_mru), 'bufstack#util#is_listed(v:val) && index(a:l, v:val) < 0')
 endfunction
 
 " Find the count'th buffer to switch to.
@@ -98,7 +98,7 @@ function! s:findnext(bufs, index, count) abort
    endif
    let idx = a:index
    for i in range(start, end, dir)
-      if buflisted(a:bufs[i])
+      if bufstack#util#is_listed(a:bufs[i])
          let idx = i
          let ac -= 1
          if ac <= 0
@@ -171,7 +171,7 @@ endfunction
 
 function! s:forget_win(bufnr) abort
    let stack = bufstack#get_stack()
-   if bufnr('%') == a:bufnr
+   if a:bufnr == bufstack#util#get_current_bufnr(stack)
       silent if !bufstack#cmd#alt()
          enew
       endif
@@ -185,9 +185,8 @@ function! s:forget_win(bufnr) abort
    endif
 endfunction
 
-function! s:boundserror(bufs, idx, c) abort
-   " TODO use stack's current buffer instead of bufnr('%')
-   if a:c != 0 && (!g:bufstack_goend || a:bufs[a:idx] == bufnr('%'))
+function! s:boundserror(bufs, idx, c, startcount) abort
+   if a:c != 0 && (!g:bufstack_goend || a:c == a:startcount)
       echohl ErrorMsg
       echo printf('At %s of buffer list', a:c < 0 ? 'end' : 'start')
       echohl None
@@ -212,8 +211,8 @@ function! bufstack#cmd#next(count) abort
    let success = 0
    let stack = bufstack#get_stack()
    let [bufs, idx, c] = s:findnext_extend(stack.bufs, stack.index, a:count)
-   if !s:boundserror(bufs, idx, c)
-      let oldb = bufnr('%')
+   if !s:boundserror(bufs, idx, c, a:count)
+      let oldb = bufstack#util#get_current_bufnr(stack)
       call s:gobuf(bufs[idx])
       let stack.bufs = bufs
       let stack.index = idx
@@ -231,10 +230,10 @@ function! bufstack#cmd#alt(...) abort
    let tmps = deepcopy(stack)
    call bufstack#applylast(tmps)
    let [idx, c] = s:findnext(tmps.bufs, tmps.index, cnt)
-   if !s:boundserror(tmps.bufs, idx, c)
+   if !s:boundserror(tmps.bufs, idx, c, cnt)
       let newbuf = tmps.bufs[idx]
       let newidx = index(stack.bufs, newbuf)
-      let oldb = bufnr('%')
+      let oldb = bufstack#util#get_current_bufnr(stack)
       call s:gobuf(newbuf)
       let stack.index = newidx
       call filter(stack.last, 'v:val != newbuf')
@@ -296,12 +295,14 @@ endfunction
 " an empty buffer.
 function! bufstack#cmd#delete(bufnr, ...) abort
    let success = 0
-   let mybuf = bufnr('%')
-   call s:forget(a:bufnr)
-   if bufloaded(a:bufnr) " incase the buffer was deleted by leaving it
-      silent exe 'bdelete' a:bufnr
+   let stack = bufstack#get_stack()
+   let mybuf = bufstack#util#get_current_bufnr(stack)
+   let bufnr = a:bufnr < 0 ? mybuf : a:bufnr
+   call s:forget(bufnr)
+   if bufloaded(bufnr) " incase the buffer was deleted by leaving it
+      silent exe 'bdelete' bufnr
    endif
-   if mybuf == a:bufnr && get(a:000, 0, 0)
+   if mybuf == bufnr && get(a:000, 0, 0)
       silent! wincmd c
    endif
    return success
