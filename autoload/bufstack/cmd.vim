@@ -1,7 +1,7 @@
 " File:        bufstack.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-06-29
-" Last Change: 2015-03-29
+" Last Change: 2016-10-14
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -175,9 +175,14 @@ function! s:forget_win(bufnr) abort
       silent if !bufstack#cmd#alt()
          enew
       endif
-      call bufstack#applylast(stack)
    endif
-   call filter(stack.bufs, 'v:val != a:bufnr')
+   let index = index(stack.bufs, a:bufnr)
+   if index >= 0
+      if index < stack.index
+         let stack.index -= 1
+      endif
+      call remove(stack.bufs, index)
+   endif
 endfunction
 
 function! s:boundserror(bufs, idx, c) abort
