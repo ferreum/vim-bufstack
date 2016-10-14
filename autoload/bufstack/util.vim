@@ -1,7 +1,7 @@
 " File:        util.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-07-01
-" Last Change: 2014-10-03
+" Last Change: 2016-10-14
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -80,6 +80,46 @@ function! bufstack#util#list_status_bufs(...) abort
       let current = stack.bufs[0]
    endif
    return filter(copy(stack.bufs), 'v:val == current || bufstack#util#is_listed(v:val)')[:(max-1)]
+endfunction
+
+function! bufstack#util#get_status_info(...) abort
+   let max = a:0 >= 1 ? a:1 : 99999
+   if max < 1
+      let max = 1
+   endif
+   let stack = a:0 >= 2 ? a:2 : bufstack#get_stack()
+   let bufs = stack.bufs
+   if empty(stack.bufs)
+      return {'current': -1, 'more': 0, 'near': []}
+   endif
+   if !empty(stack.last)
+      let current = bufs[stack.index]
+   else
+      let current = bufs[0]
+   endif
+   " Add current here, because we want to show it even when unlisted.
+   let near = [current]
+   if max >= 1 && stack.index > 0
+      for buf in bufs[:(stack.index - 1)]
+         if bufstack#util#is_listed(buf)
+            call insert(near, buf, -1)
+         endif
+      endfor
+   endif
+   if max >= 2
+      for buf in bufs[(stack.index + 1):]
+         if bufstack#util#is_listed(buf) && len(add(near, buf)) >= max
+            break
+         endif
+      endfor
+   endif
+   if len(near) > max
+      let more = len(near) - max
+      call remove(near, 0, more - 1)
+   else
+      let more = 0
+   endif
+   return {'current': current, 'more': more, 'near': near}
 endfunction
 
 let &cpo = s:save_cpo
