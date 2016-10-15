@@ -1,7 +1,7 @@
 " File:        util.vim
 " Author:      ferreum (github.com/ferreum)
 " Created:     2014-07-01
-" Last Change: 2016-10-15
+" Last Change: 2016-10-16
 " License:     MIT license  {{{
 "     Permission is hereby granted, free of charge, to any person obtaining
 "     a copy of this software and associated documentation files (the
@@ -101,12 +101,15 @@ function! bufstack#util#get_status_info(...) abort
    let stack = a:0 >= 2 ? a:2 : bufstack#get_stack()
    let bufs = stack.bufs
    if empty(stack.bufs)
-      return {'current': -1, 'more': 0, 'near': []}
+      return {'current': -1, 'more': 0, 'near': [], 'alt': -1}
    endif
+   let current = bufs[stack.index]
    if !empty(stack.last)
-      let current = bufs[stack.index]
+      let alt = stack.last[0]
+   elseif len(bufs) > 1
+      let alt = bufs[1]
    else
-      let current = bufs[0]
+      let alt = -1
    endif
    " Add current here, because we want to show it even when unlisted.
    let near = [current]
@@ -130,7 +133,7 @@ function! bufstack#util#get_status_info(...) abort
    else
       let more = 0
    endif
-   return {'current': current, 'more': more, 'near': near}
+   return {'current': current, 'more': more, 'near': near, 'alt': alt}
 endfunction
 
 let &cpo = s:save_cpo
