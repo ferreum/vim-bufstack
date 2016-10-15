@@ -104,12 +104,20 @@ function! bufstack#util#get_status_info(...) abort
       return {'current': -1, 'more': 0, 'near': [], 'alt': -1}
    endif
    let current = bufs[stack.index]
-   if !empty(stack.last)
-      let alt = stack.last[0]
-   elseif len(bufs) > 1
-      let alt = bufs[1]
-   else
-      let alt = -1
+   let alt = -1
+   for buf in stack.last
+      if bufstack#util#is_listed(buf)
+         let alt = buf
+         break
+      endif
+   endfor
+   if alt < 0
+      for buf in stack.bufs
+         if buf != current && bufstack#util#is_listed(buf)
+            let alt = buf
+            break
+         endif
+      endfor
    endif
    " Add current here, because we want to show it even when unlisted.
    let near = [current]
